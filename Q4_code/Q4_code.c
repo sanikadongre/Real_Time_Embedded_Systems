@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <sched.h>
 #include <unistd.h>
-#include <systime.h>
+#include <time.h>
 #include <syslog.h>
 #include <math.h>
 #include <sys/param.h>
