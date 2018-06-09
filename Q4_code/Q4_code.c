@@ -11,7 +11,7 @@ Code for Timesys Version:
 #include <stdio.h>
 #include <sched.h>
 #include <unistd.h>
-#include <time.h>
+#include <systime.h>
 #include <syslog.h>
 #include <math.h>
 #include <sys/param.h>
@@ -39,8 +39,7 @@ int seqIterations = FIB_LIMIT_FOR_32_BIT;
 /********************************************************************
  Function Declarations
 ********************************************************************/
-27
-Independent Study
+
 double readTOD(void);
 double elapsedTOD(double stopTOD, double startTOD);
 void printTOD(double stopTOD, double startTOD);
@@ -86,8 +85,7 @@ double readTOD(void)
 }
 void elapsedTODPrint(double stopTOD, double startTOD)
 {
-28
-Independent Study
+
  double dt;
  if(stopTOD > startTOD)
  {
@@ -130,8 +128,6 @@ void print_scheduler(void)
  break;
  case SCHED_RR:
  printf("Pthread Policy is SCHED_OTHER\n");
-29
-Independent Study
  break;
  default:
  printf("Pthread Policy is UNKNOWN\n");
@@ -171,8 +167,6 @@ msec\n",param.sched_priority,(double)(stop-start) * 1000);
 #endif
 }
 #else
-30
-Independent Study
 void *Thread10(void *threadid)
 {
 struct sched_param param;
@@ -215,8 +209,6 @@ double stop = 0;
 int idx = 0, jdx = 1;
 int fib = 0, fib0 = 0, fib1 = 1;
 double duration;
-31
-Independent Study
 while (!abortTest_20)
 {
 sem_wait(&sem_t20);
@@ -258,8 +250,6 @@ int main (int argc, char *argv[])
  //
  // Note that FIFO is essentially priority preemptive run to
  // completion on Linux with NPTL since each thread will run
-32
-Independent Study
  // uninterrupted at it's given priority level.
  //
  // RR allows threads to run in a Round Robin fashion.
@@ -302,8 +292,7 @@ Independent Study
  printf("PTHREAD SCOPE PROCESS\n");
  else
  printf("PTHREAD SCOPE UNKNOWN\n");
-33
-Independent Study
+
  // Note that POSIX priorities are such that the highest priority
  // thread has a large priority number. This is very different
  // than VxWorks for example where low priority numbers mean high
@@ -345,8 +334,6 @@ Independent Study
  }
  /* Basic sequence of releases after CI */
  usleep(t_20);
-34
-Independent Study
  sem_post(&sem_t10);
  usleep(t_20);
  sem_post(&sem_t10);
@@ -372,4 +359,4 @@ Independent Study
  rc=sched_setscheduler(getpid(), SCHED_OTHER, &nrt_param);
  printf("TEST COMPLETE\n");
 #endif
-}
+}
