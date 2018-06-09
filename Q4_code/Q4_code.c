@@ -1,4 +1,4 @@
-Code for Timesys Version:
+
 /*
  * two_tasks_timesys.c
  *
@@ -11,13 +11,14 @@ Code for Timesys Version:
 #include <stdio.h>
 #include <sched.h>
 #include <unistd.h>
-#include <time.h>
+#include <systime.h>
 #include <syslog.h>
 #include <math.h>
 #include <sys/param.h>
 #define FIB_TIMER_CONFIG /* Used to configure the iterations of
 FIB_TEST */
-#define SYSLOG /* For syslog messages
+#define SYSLOG /* 
+ syslog messages
 */
 /********************************************************************
  Variable Declarations
