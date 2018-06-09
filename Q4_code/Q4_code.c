@@ -39,23 +39,23 @@ double readTOD(void);
 double elapsedTOD(double stopTOD,double startTOD);
 void printTOD(double stopTOD,double startTOD);
 
-#define FIB_TEST(seqCnt, iterCnt)      
-for(idx=0; idx < iterCnt; idx++)    
-   {                                   
-while(jdx < seqCnt)
-{                              
-if (jdx == 0)
-{
-fib = 1;
-}
-else
-{
-fib0 = fib1;            
-fib1 = fib;             
-fib = fib0 + fib1;      
-}
-jdx++;                      
-}                         
+#define FIB_TEST(seqCnt, iterCnt)      \
+for(idx=0; idx < iterCnt; idx++)    \
+   {                                   \
+while(jdx < seqCnt)\
+{                              \
+if (jdx == 0)\
+{\
+fib = 1;\
+}\
+else\
+{\
+fib0 = fib1;            \
+fib1 = fib;             \
+fib = fib0 + fib1;      \
+}\
+jdx++;                      \
+}                         \
    }
 
 double readTOD(void)
