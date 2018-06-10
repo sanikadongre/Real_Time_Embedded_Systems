@@ -1,5 +1,3 @@
-
-
 /*
  * two_tasks_timesys.c
  *
@@ -16,14 +14,11 @@
 #include <syslog.h>
 #include <math.h>
 #include <sys/param.h>
-//#define FIB_TIMER_CONFIG /* Used to configure the iterations of
-//FIB_TEST */
-#define SYSLOG /* 
- syslog messages
-*/
-/********************************************************************
+//#define FIB_TIMER_CONFIG /* Used to configure the iterations of FIB_TEST */
+//#define SYSLOG /* For syslog messages*/
+/************************
  Variable Declarations
-********************************************************************/
+************************/
 pthread_t testThread10;
 pthread_t testThread20;
 pthread_attr_t rt10_sched_attr;
@@ -38,16 +33,15 @@ struct sched_param nrt_param;
 struct sched_param main_param;
 #define FIB_LIMIT_FOR_32_BIT 47
 int seqIterations = FIB_LIMIT_FOR_32_BIT;
-/********************************************************************
+/************************
  Function Declarations
-********************************************************************/
-
+************************/
 double readTOD(void);
 double elapsedTOD(double stopTOD, double startTOD);
 void printTOD(double stopTOD, double startTOD);
-/********************************************************************
+/************************
  Fibonaci Delay
-********************************************************************/
+************************/
 #define FIB_TEST(seqCnt, iterCnt) \
  for(idx=0; idx < iterCnt; idx++) \
  { \
@@ -66,9 +60,9 @@ fib = fib0 + fib1; \
 jdx++; \
 } \
  }
-/********************************************************************
+/************************
  Timer Function Definitions
-********************************************************************/
+************************/
 double readTOD(void)
 {
  struct timeval tv;
@@ -87,7 +81,6 @@ double readTOD(void)
 }
 void elapsedTODPrint(double stopTOD, double startTOD)
 {
-
  double dt;
  if(stopTOD > startTOD)
  {
@@ -135,9 +128,9 @@ void print_scheduler(void)
  printf("Pthread Policy is UNKNOWN\n");
  }
 }
-/********************************************************************
+/************************
  Threads
-********************************************************************/
+************************/
 #ifdef FIB_TIMER_CONFIG
 void *Thread10(void *threadid)
 {
@@ -160,9 +153,8 @@ start = readTOD();
 FIB_TEST(seqIterations,838000 );
 stop = readTOD();
 pthread_getschedparam(testThread10,&policy ,&param);
-#ifdef SYSLOG 
-syslog(LOG_KERN |LOG_CRIT, "Thread10 priority = %d and time stamp %lf msec\n",param.sched_priority,(double)(stop-start) * 1000);
-
+#ifdef SYSLOG
+syslog(LOG_KERN |LOG_CRIT, "Thread10 priority = %d and timestamp %lf msec\n",param.sched_priority,(double)(stop-start) * 1000);
 #else
 printf("Thread10 priority = %d and time stamp %lf msec\n",param.sched_priority,(double)(stop-start) * 1000);
 #endif
@@ -229,9 +221,9 @@ printf("Thread20 priority = %d and time stamp %lf msec\n",param.sched_priority,(
 }
 }
 #endif
-/********************************************************************
+/************************
  Main
-********************************************************************/
+************************/
 int main (int argc, char *argv[])
 {
  int rc, scope,i;
@@ -289,7 +281,6 @@ int main (int argc, char *argv[])
  printf("PTHREAD SCOPE PROCESS\n");
  else
  printf("PTHREAD SCOPE UNKNOWN\n");
-
  // Note that POSIX priorities are such that the highest priority
  // thread has a large priority number. This is very different
  // than VxWorks for example where low priority numbers mean high
@@ -309,8 +300,7 @@ int main (int argc, char *argv[])
  rc = pthread_create(&testThread10, &rt10_sched_attr,Thread10 , (void *)0);
  if (rc)
  {
- printf("ERROR; pthread_create() rc is %d\n", rc); perror(NULL); exit(-
-1);
+ printf("ERROR; pthread_create() rc is %d\n", rc); perror(NULL); exit(-1);
  }
  pthread_join(testThread10,NULL);
  if(pthread_attr_destroy(&rt10_sched_attr) != 0)
@@ -320,6 +310,7 @@ int main (int argc, char *argv[])
 #else
  start_1 = readTOD();
  rc = pthread_create(&testThread10, &rt10_sched_attr,Thread10 , (void *)0);
+
  if (rc)
  {
  printf("ERROR; pthread_create() rc is %d\n", rc); perror(NULL); exit(-1);
