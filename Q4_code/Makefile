@@ -1,25 +1,19 @@
-INCLUDE_DIRS = 
-LIB_DIRS = 
+
 CC=gcc
 
-CDEFS=
-CFLAGS= -O0 -g $(INCLUDE_DIRS) $(CDEFS)
-LIBS= 
+CFLAGS= -O0 -g -lpthread 
 
-HFILES= 
 CFILES= Q4_code.c
 
 
-SRCS= ${HFILES} ${CFILES}
+SRCS= ${CFILES}
+
 OBJS= ${CFILES:.c=.o}
 
-all:	 Q4_code
+build:	 Q4_code
 
 clean:	 -rm -f Q4_code
 
-Q4_c:	 Q4_code.o
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o -lpthread
+Q4_code:	 Q4_code.o
+	$(CC) $(CFLAGS) -o Q4_code Q4_code.o 
 
-depend:
-
-.c.o:	$(CC) $(CFLAGS) -c $<
