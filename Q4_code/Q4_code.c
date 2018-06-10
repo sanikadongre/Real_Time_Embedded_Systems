@@ -15,8 +15,8 @@
 #include <syslog.h>
 #include <math.h>
 #include <sys/param.h>
-#define FIB_TIMER_CONFIG /* Used to configure the iterations of
-FIB_TEST */
+//#define FIB_TIMER_CONFIG /* Used to configure the iterations of
+//FIB_TEST */
 #define SYSLOG /* 
  syslog messages
 */

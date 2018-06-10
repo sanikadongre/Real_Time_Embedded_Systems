@@ -1,7 +1,7 @@
 
 CC=gcc
 
-CFLAGS= -O0 -g -lpthread -pthread 
+CFLAGS= -O0 -g -lpthread -pthread -lm 
 
 CFILES= Q4_code.c
 
