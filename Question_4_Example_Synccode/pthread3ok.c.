@@ -1,3 +1,4 @@
+//Author: Sam Seiwart
 #include <pthread.h>
 #include <stdio.h>a
 #include <sched.h>
