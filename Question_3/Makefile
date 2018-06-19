@@ -8,6 +8,7 @@ POSIX_EXE= posix_clock_code
 CFILES= posix_clock.c
 
 SRCS= ${CFILES}
+
 OBJS= ${CFILES:.c=.o}
 
 build:	${POSIX_EXE}
