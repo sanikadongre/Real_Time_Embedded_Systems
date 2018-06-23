@@ -11,7 +11,7 @@ OBJS= ${CFILES:.c=.o}
 
 build:	feasibility_tests
 
-clean:	-rm -f feasibility_tests_code
+clean:	-rm -f feasibility_tests
 
 feasibility_tests:	 feasibility_tests.o
 	$(CC) $(CFLAGS) -o feasibility_tests feasibility_tests.o 
