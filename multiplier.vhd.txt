@@ -1,0 +1,31 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+
+entity multiplication is
+port( num1,num2: in std_logic_vector(1 downto 0);
+      output: out std_logic_vector(3 downto 0)
+);
+end multiplication;
+
+architecture behv of multiplication is
+begin
+process(num1,num2)
+
+variable num1_reg: std_logic_vector(2 downto 0);
+variable output_reg: std_logic_vector( 5 downto 0);
+
+begin
+
+for i in 1 to 3 loop
+ if output_reg(0) = '1' then 
+ output_reg(5 downto 3): = output_reg( 5 downto 3) + num1_reg(2 downto 0);
+ endif;
+ output_reg(5 downto 0) := '0' & output_reg(5 downto 1);
+ end loop;
+
+ output <= output_reg( 3 downto 0);
+
+end process;
+end bhev;
