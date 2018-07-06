@@ -1,23 +1,17 @@
+CC = gcc
 
-CFLAGS= -O -g $(INCLUDE_DIRS) $(CDEFS) -DLINUX
-
-LIBS=-lpthread -lrt
+CFLAGS= -O -g -DLINUX -lpthread -lrt
  
 CFILES2= deadlock_fix.c
 
-SRCS2= ${HFILES} ${CFILES2}
+SRCS2= ${CFILES2}
 
 OBJS2= ${CFILES2:.c=.o}
 
 all: deadlock_fix
 
-clean:
-	-rm -f *.o *.d *.exe deadlock_fix
+clean:	-rm -f *.o *.d *.exe deadlock_fix
 
 deadlock_fix: deadlock_fix.o
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS2) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS2)
 
-depend:
-
-.c.o:
-	$(CC) -MD $(CFLAGS) -c $<
