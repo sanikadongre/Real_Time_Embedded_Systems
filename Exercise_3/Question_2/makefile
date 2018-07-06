@@ -1,11 +1,20 @@
 
 CC=gcc
 
+CFLAGS= -O0 -lpthread -lrt   
 
-CFLAGS= -O0 -lpthread -lrt -pthread   
+MUTEX_EXE= mutex
 
-mutex:	mutex.c
-	$(CC) $(CFLAGS)  -o mutex mutex.c 
+CFILES= mutex.c
 
-clean:
-	rm Watchdog_timer
+SRCS= ${CFILES}
+
+OBJS= ${CFILES:.c=.o}
+
+build:	${MUTEX_EXE}
+
+clean:	-rm -f ${MUTEX_EXE}
+
+mutex:	mutex.o
+	$(CC) $(CFLAGS) -o mutex mutex.o 
+
