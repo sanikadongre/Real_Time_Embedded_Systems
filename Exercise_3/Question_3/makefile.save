@@ -1,0 +1,28 @@
+INCLUDE_DIRS = 
+LIB_DIRS = 
+
+CDEFS=
+CFLAGS= -O -g $(INCLUDE_DIRS) $(CDEFS) -DLINUX
+LIBS=-lpthread -lrt
+ 
+CFILES2= deadlock.c
+
+SRCS2= ${CFILES2}
+
+OBJS2= ${CFILES2:.c=.o}
+
+all: deadlock
+
+clean:
+	-rm -f *.o *.d *.exe dead
+
+deadlock: deadlock.o
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS2) $(LIBS)
+
+deadlock_timeout: deadlock_timeout.o
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS4) $(LIBS)
+
+depend:
+
+.c.o:
+	$(CC) -MD $(CFLAGS) -c $<
