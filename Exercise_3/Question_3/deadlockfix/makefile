@@ -15,6 +15,6 @@ build:	${DEADLOCK_FIX_EXE}
 clean:	-RM -F ${DEADLOCK_FIX_EXE}
 
 deadlock_fix: deadlock_fix.o
-	$(CC) $(CFLAGS) -o deadlock_fix deadlock_fix.o
+	$(CC) $(CFLAGS) -o deadlock_fix deadlock_fix.c
 
 
