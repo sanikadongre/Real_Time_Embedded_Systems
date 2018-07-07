@@ -20,7 +20,8 @@ OBJS4=	${CFILES4:.c=.o}
 
 build:	pthread3	pthread3ok	deadlock	deadlock_timeout
 
-clean:	-rm	-f	*.o	*.d	*.exe	pthread3	pthread3ok	deadlock	deadlock_timeout
+clean:	
+	rm	-f	*.o	*.d	*.exe	pthread3	pthread3ok	deadlock	deadlock_timeout
 
 pthread3:	pthread3.o
 	$(CC)	$(CFLAGS)	-o	pthread3	$(OBJS1)
