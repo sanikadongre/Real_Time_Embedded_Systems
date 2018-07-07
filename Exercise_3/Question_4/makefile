@@ -1,18 +1,22 @@
 
-CC=gcc
+CC=	gcc
 
-CFLAGS= -Wall \
--O0
-
+CFLAGS=	-O0	-g	-lpthread	-pthread	-lm
 
 
-posix_mq:posix_mq.c
-	$(CC) $(CFLAGS)  -o posix_mq   posix_mq.c -lpthread -lrt
+CFILES=	posix_mq.c
+
+SRCS=	${CFILES}
+
+OBJS=	${CFILES:.c=.o}
 
 
-heap_mq:heap_mq.c
-	$(CC) $(CFLAGS)  -o heap_mq   heap_mq.c -lpthread -lrt
+posix_mq:	posix_mq.o
+	$(CC)	 $(CFLAGS)	-o	posix_mq	posix_mq.o	-lrt
 
-.PHONY:clean
-clean:
-	rm heap_mq posix_mq
+
+heap_mq:	heap_mq.o
+	$(CC)	 $(CFLAGS)	 -o	 heap_mq	 heap_mq.o	 -lrt
+
+
+clean:	-rm	-f	 heap_mq	 posix_mq
