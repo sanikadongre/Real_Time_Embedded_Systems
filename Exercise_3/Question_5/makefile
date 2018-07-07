@@ -1,7 +1,7 @@
 
 CC=	gcc
 
-CFLAGS=	-O0	-lpthread	-lrt   
+CFLAGS=	-O0	-lpthread	-lrt	-pthread   
 
 WATCHDOG_TIMER_EXE=	Watchdog_timer
 
