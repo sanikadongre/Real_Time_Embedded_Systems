@@ -22,4 +22,4 @@ heap_mq:	heap_mq.o
 
 
 clean:	
-	-rm	-f	*.o	*.s	*.i	*.d	*.elf	heap_mq	posix_mq
+	rm	-f	*.o	*.s	*.i	*.d	*.elf	heap_mq	posix_mq
