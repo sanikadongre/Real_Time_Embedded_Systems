@@ -10,7 +10,7 @@
 #include<fcntl.h>
 #include<mqueue.h>
 
-#define SNDRCV_MQ "/send_receive_mq_heap"
+#define SNDRCV_MQ	"/send_receive_mq"
 
 struct mq_attr mq_attr;				//message queue attributes
 
