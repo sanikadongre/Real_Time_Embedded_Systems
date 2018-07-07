@@ -9,7 +9,7 @@
 #include<fcntl.h>
 #include<mqueue.h>
 
-#define SNDRCV_MQ	"/send_receive_mq"
+#define SNDRCV_MQ"/send_receive_mq"
 #define ERROR	(-1)
 
 
