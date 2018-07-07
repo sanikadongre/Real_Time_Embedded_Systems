@@ -12,26 +12,18 @@
 
 #define SNDRCV_MQ "/send_receive_mq_heap"
 
-struct mq_attr mq_attr;				//message queue attribute variable
+struct mq_attr mq_attr;				//message queue attributes
 
 static mqd_t mymq;
 
-pthread_t receive, send;	//declare threads 
+pthread_t receive, send;	//thread declaration
 
-pthread_attr_t attribute[2];		//thread attributes
+pthread_attr_t att[2];
 
-struct sched_param parameter[2];		//thread params
+struct sched_param parameter[2];		//thread parameters
 
-/* receives pointer to heap, reads it, and deallocate heap memory */
-/*---------------------------------------------------------------------------------------------------------------------------*/
-/*
-  @brief: Receiver thread
- 
- @param:None
- @return: None
- */
-/*-----------------------------------------------------------------------------------------------------------------------------*/
-void *receiver(void *threadp)
+
+void *receiver(void *threadp) //Receiver
 {
   char buffer[sizeof(void *)+sizeof(int)];
   void *buffptr; 
@@ -42,13 +34,11 @@ void *receiver(void *threadp)
  
   while(1) {
 
-    /* read oldest, highest priority msg from the message queue */
+    /* This is the Highest priority msg from the message queue */
 
     printf("\nReading %ld bytes\n", sizeof(void *));
   
     if((nbytes = mq_receive(mymq, buffer, (size_t)(sizeof(void *)+sizeof(int)), &prio)) == -1)
-
-//    if((nbytes = mq_receive(mymq, (void *)&buffptr, (size_t)sizeof(void *), &prio)) == -1)
 
     {
       perror("mq_receive");
@@ -73,14 +63,7 @@ void *receiver(void *threadp)
 
 
 static char imagebuff[4096];
-/*---------------------------------------------------------------------------------------------------------------------------*/
-/*
-  @brief: Sender thread
- 
- @param:None
- @return: None
- */
-/*-----------------------------------------------------------------------------------------------------------------------------*/
+
 void *sender(void *threadp)
 {
   char buffer[sizeof(void *)+sizeof(int)];
@@ -92,7 +75,7 @@ void *sender(void *threadp)
 
   while(1) {
 
-    /* send malloc'd message with priority=30 */
+    /* memory is allocated using malloc function and its priority is set as 30 */
 
     buffptr = (void *)malloc(sizeof(imagebuff));
     strcpy(buffptr, imagebuff);
@@ -120,14 +103,7 @@ void *sender(void *threadp)
 
 
 static int sid, rid;
-/*---------------------------------------------------------------------------------------------------------------------------*/
-/*
-  @brief: Main function
- 
- @param:None
- @return: None
- */
-/*-----------------------------------------------------------------------------------------------------------------------------*/
+
 void main()
 {
   int i, j;
@@ -145,33 +121,31 @@ void main()
   imagebuff[63] = '\0';
 
   printf("buffer =\n%s", imagebuff);
-  //printf("%ld", sizeof(imagebuff));
 
-  /* setup common message q attributes */
   mq_attr.mq_maxmsg = 100;
   mq_attr.mq_msgsize = sizeof(void *)+sizeof(int);
 
   mq_attr.mq_flags = 0;
 
-  /* note that VxWorks does not deal with permissions? */
+  /* O_RWDR flag is used as the second parameter for message queue open */
   mymq = mq_open(SNDRCV_MQ, O_CREAT|O_RDWR, 0664, &mq_attr);
 
 for (int i=0; i<2; i++)
 {
-  rc=pthread_attr_init(&attribute[i]);
-  rc=pthread_attr_setinheritsched(&attribute[i], PTHREAD_EXPLICIT_SCHED);
-  rc=pthread_attr_setschedpolicy(&attribute[i], SCHED_FIFO);
+  rc=pthread_attr_init(&att[i]);
+  rc=pthread_attr_setinheritsched(&att[i], PTHREAD_EXPLICIT_SCHED);
+  rc=pthread_attr_setschedpolicy(&att[i], SCHED_FIFO);
   parameter[i].sched_priority=99-i;
-  pthread_attr_setschedparam(&attribute[i], &parameter[i]);
+  pthread_attr_setschedparam(&att[i], &parameter[i]);
 }
 
-if(pthread_create(&receive, (void*)&attribute[0], receiver, NULL)==0)
-	printf("\n\rReceiver Thread Created Sucessfully!\n\r");
-  else perror("thread creation failed");
+if(pthread_create(&receive, (void*)&att[0], receiver, NULL)==0)
+	printf("\n\rReceiver Thread is created Sucessfully!\n\r");
+  else perror("thread creation has failed");
   
-  if(pthread_create(&send, (void*)&attribute[1], sender, NULL)==0)
-	printf("\n\rSender Thread Created Sucessfully!\n\r");
-  else perror("thread creation failed");
+  if(pthread_create(&send, (void*)&att[1], sender, NULL)==0)
+	printf("\n\rSender Thread  is Created Sucessfully!\n\r");
+  else perror("thread creation has failed");
 
   pthread_join(receive, NULL);
   pthread_join(send, NULL);
@@ -181,10 +155,3 @@ if(pthread_create(&receive, (void*)&attribute[0], receiver, NULL)==0)
 }
 
 
-/*void shutdown(void)
-{
-  mq_close(mymq);
-  taskDelete(sid);
-  taskDelete(rid);
-
-}*/

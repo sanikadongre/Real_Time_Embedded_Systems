@@ -4,11 +4,13 @@ CC=	gcc
 CFLAGS=	-O0	-g	-lpthread	-pthread	-lm
 
 
-CFILES=	posix_mq.c
+CFILES=	posix_mq.c	heap_mq.c
 
 SRCS=	${CFILES}
 
 OBJS=	${CFILES:.c=.o}
+
+build:	posix_mq	heap_mq
 
 
 posix_mq:	posix_mq.o
