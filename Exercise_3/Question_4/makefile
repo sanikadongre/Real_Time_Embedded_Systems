@@ -14,11 +14,11 @@ build:	posix_mq	heap_mq
 
 
 posix_mq:	posix_mq.o
-	$(CC)	 $(CFLAGS)	-o	posix_mq	posix_mq.o	-lrt
+	$(CC)	 $(CFLAGS)	-o	posix_mq	posix_mq.c	-lrt
 
 
 heap_mq:	heap_mq.o
-	$(CC)	 $(CFLAGS)	 -o	 heap_mq	 heap_mq.o	 -lrt
+	$(CC)	 $(CFLAGS)	 -o	 heap_mq	 heap_mq.c	 -lrt
 
 
 clean:	-rm	-f	 heap_mq	 posix_mq
