@@ -16,55 +16,15 @@ struct mq_attr mq_attr;				//message queue attributes
 
 static mqd_t mymq;
 
-pthread_t receive, send;	//thread declaration
+pthread_t receive_thread, send_thread;	//thread declaration
 
 pthread_attr_t att[2];
 
 struct sched_param parameter[2];		//thread parameters
 
-
-void *receiver(void *threadp) //Receiver
-{
-  char buffer[sizeof(void *)+sizeof(int)];
-  void *buffptr; 
-  int prio;
-  int nbytes;
-  int count = 0;
-  int id;
- 
-  while(1) {
-
-    /* This is the Highest priority msg from the message queue */
-
-    printf("\nReading %ld bytes\n", sizeof(void *));
-  
-    if((nbytes = mq_receive(mymq, buffer, (size_t)(sizeof(void *)+sizeof(int)), &prio)) == -1)
-
-    {
-      perror("mq_receive");
-    }
-    else
-    {
-      memcpy(&buffptr, buffer, sizeof(void *));
-      memcpy((void *)&id, &(buffer[sizeof(void *)]), sizeof(int));
-      printf("\nReceive: ptr msg 0x%p received with priority = %d, length = %d, id = %d\n", buffptr, prio, nbytes, id);
-
-      printf("\nContents of ptr = \n%s\n", (char *)buffptr);
-
-      free(buffptr);
-
-      printf("\nHeap space memory freed\n");
-
-    }
-    
-  }
-
-}
-
-
 static char imagebuff[4096];
 
-void *sender(void *threadp)
+void *sender_function(void *threadp) //Sender 
 {
   char buffer[sizeof(void *)+sizeof(int)];
   void *buffptr;
@@ -101,7 +61,43 @@ void *sender(void *threadp)
   
 }
 
+void *receiver_function(void *threadp) //Receiver
+{
+  char buffer[sizeof(void *)+sizeof(int)];
+  void *buffptr; 
+  int prio;
+  int nbytes;
+  int count = 0;
+  int id;
+ 
+  while(1) {
 
+    /* This is the Highest priority msg from the message queue */
+
+    printf("\nReading %ld bytes\n", sizeof(void *));
+  
+    if((nbytes = mq_receive(mymq, buffer, (size_t)(sizeof(void *)+sizeof(int)), &prio)) == -1)
+
+    {
+      perror("mq_receive");
+    }
+    else
+    {
+      memcpy(&buffptr, buffer, sizeof(void *));
+      memcpy((void *)&id, &(buffer[sizeof(void *)]), sizeof(int));
+      printf("\nReceive: ptr msg 0x%p received with priority = %d, length = %d, id = %d\n", buffptr, prio, nbytes, id);
+
+      printf("\nContents of ptr = \n%s\n", (char *)buffptr);
+
+      free(buffptr);
+
+      printf("\nHeap space memory freed\n");
+
+    }
+    
+  }
+
+}
 static int sid, rid;
 
 void main()
@@ -127,7 +123,7 @@ void main()
 
   mq_attr.mq_flags = 0;
 
-  /* O_RWDR flag is used as the second parameter for message queue open */
+  /* O_RWDR is used as the second parameter for message queue open and gives read write permission*/
   mymq = mq_open(SNDRCV_MQ, O_CREAT|O_RDWR, 0664, &mq_attr);
 
 for (int i=0; i<2; i++)
@@ -139,16 +135,16 @@ for (int i=0; i<2; i++)
   pthread_attr_setschedparam(&att[i], &parameter[i]);
 }
 
-if(pthread_create(&receive, (void*)&att[0], receiver, NULL)==0)
+if(pthread_create(&receive_thread, (void*)&att[0], receiver_function, NULL)==0)
 	printf("\n\rReceiver Thread is created Sucessfully!\n\r");
   else perror("thread creation has failed");
   
-  if(pthread_create(&send, (void*)&att[1], sender, NULL)==0)
+  if(pthread_create(&send_thread, (void*)&att[1], sender_function, NULL)==0)
 	printf("\n\rSender Thread  is Created Sucessfully!\n\r");
   else perror("thread creation has failed");
 
-  pthread_join(receive, NULL);
-  pthread_join(send, NULL);
+  pthread_join(receive_thread, NULL);
+  pthread_join(send_thread, NULL);
 
 
   
