@@ -21,4 +21,5 @@ heap_mq:	heap_mq.o
 	$(CC)	 $(CFLAGS)	 -o	 heap_mq	 heap_mq.c	 -lrt
 
 
-clean:	-rm	-f	 heap_mq	 posix_mq
+clean:	
+	-rm	-f	*.o	*.s	*.i	*.d	*.elf	heap_mq	posix_mq
