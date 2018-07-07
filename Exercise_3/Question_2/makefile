@@ -1,7 +1,7 @@
 
 CC= gcc
 
-CFLAGS= -O0 -lpthread -lrt   
+CFLAGS= -O0 -pthread -lrt   
 
 MUTEX_EXE=  mutex
 
@@ -16,4 +16,5 @@ build:  ${MUTEX_EXE}
 mutex:  mutex.o
 	$(CC) $(CFLAGS) -o  mutex mutex.c
 
-clean:  -rm -f  ${MUTEX_EXE}
+clean: 
+	 -rm	-f	*.o	*.s	*.i	*.d	*.elf	*.swp	 ${MUTEX_EXE}
