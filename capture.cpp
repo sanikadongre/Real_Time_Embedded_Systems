@@ -27,8 +27,8 @@ int main( int argc, char** argv )
     CvCapture* capture;
     IplImage* frame;
     int dev=0;
-    Mat gray, canny_frame, cdst;
-    vector<Vec4i> lines;
+    Mat gray;
+    vector<Vec3f> circles;
 
     if(argc > 1)
     {
@@ -53,17 +53,21 @@ int main( int argc, char** argv )
         frame=cvQueryFrame(capture);
 
         Mat mat_frame(frame);
-        Canny(mat_frame, canny_frame, 50, 200, 3);
+        cvtColor(mat_frame, gray, CV_BGR2GRAY);
+        GaussianBlur(gray, gray, Size(9,9), 2, 2);
 
-        //cvtColor(canny_frame, cdst, CV_GRAY2BGR);
-        //cvtColor(mat_frame, gray, CV_BGR2GRAY);
+        HoughCircles(gray, circles, CV_HOUGH_GRADIENT, 1, gray.rows/8, 100, 50, 0, 0);
 
-        HoughLinesP(canny_frame, lines, 1, CV_PI/180, 50, 50, 10);
+        printf("circles.size = %d\n", circles.size());
 
-        for( size_t i = 0; i < lines.size(); i++ )
+        for( size_t i = 0; i < circles.size(); i++ )
         {
-          Vec4i l = lines[i];
-          line(mat_frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+          Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+          int radius = cvRound(circles[i][2]);
+          // circle center
+          circle( mat_frame, center, 3, Scalar(0,255,0), -1, 8, 0 );
+          // circle outline
+          circle( mat_frame, center, radius, Scalar(0,0,255), 3, 8, 0 );
         }
 
      
