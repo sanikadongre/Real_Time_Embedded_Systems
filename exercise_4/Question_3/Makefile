@@ -18,6 +18,6 @@ clean:
 	-rm -f capture
 
 capture:	capture.o
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o `pkg-config --libs opencv` $(CPPLIBS)
+	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)
 
 
