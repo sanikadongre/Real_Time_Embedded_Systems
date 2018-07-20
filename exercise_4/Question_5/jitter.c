@@ -39,9 +39,10 @@ long endsec;
 long endnsec;
 long initialnsec;
 long deltatimesec;
-long deltatimensec;
+double deltatimensec;
 long jitter;
 double framerate;
+double value;
 
 /* Threads for each transform */
 pthread_t thread_canny;
@@ -142,9 +143,10 @@ void *canny_function(void *threadid)
     deltatimesec = endsec-initialsec;
     deltatimensec = endnsec-initialnsec;
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
-    val = (deltatimesec*1000+deltatimensec/MSEC);
-    framerate = 1/val;
+    value = deltatimesec+(deltatimensec/1000000000);
+    framerate = 1/value;
     printf("\n\rThe frame rate is %f", framerate);  
+    val = (deltatimesec*1000+deltatimensec/MSEC);
     jitter = deadline_canny-val;
     printf("\n\rCanny transform when Jitter is as shown in seconds %ld nanoseconds\n\r", jitter);
 
@@ -212,9 +214,11 @@ void *hough_function(void *threadid)
     deltatimensec = endnsec-initialnsec;
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
     /*Calculate jitter*/
-    val = (deltatimesec*1000+deltatimensec/MSEC);
-    framerate = 1/val;
+    value = deltatimesec+(deltatimensec/1000000000);
+    framerate = 1/value;
     printf("\n\rThe frame rate is %f", framerate);  
+    val = (deltatimesec*1000+deltatimensec/MSEC);
+   
     jitter = deadline_hough-val;
     printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
 
@@ -287,6 +291,9 @@ void *hough_elip_function(void *threadid)
 
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
+    value = deltatimesec+(deltatimensec/1000000000);
+    framerate = 1/value;
+    printf("\n\rThe frame rate is %f", framerate); 
     /*Calculate jitter*/
     val = (deltatimesec*1000+deltatimensec/MSEC);
     framerate = 1/val;
