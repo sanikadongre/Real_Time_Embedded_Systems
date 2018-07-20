@@ -34,13 +34,13 @@ struct timespec timestamp;
 /*Define semaphores*/
 sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
 
-long initialsec;
-long endsec;
-long endnsec;
-long initialnsec;
-long deltatimesec;
-double deltatimensec;
-long jitter;
+struct timespec initialsec = {0,0};
+struct timespec initialnsec = {0,0};
+struct timespec endsec= {0,0};
+struct timespec endnsec = {0,0};
+struct timespec deltatimesec = {0,0};
+struct timespec deltatimensec = {0,0};
+struct timespec jitter;
 double framerate;
 double value;
 
@@ -82,6 +82,43 @@ IplImage* frameHough;
 IplImage* frameHoughElip;
 
 CvCapture* capture;
+
+
+int delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
+{
+  int dt_sec=stop->tv_sec - start->tv_sec;
+  int dt_nsec=stop->tv_nsec - start->tv_nsec;
+
+  if(dt_sec >= 0)
+  {
+    if(dt_nsec >= 0)
+    {
+      delta_t->tv_sec=dt_sec;
+      delta_t->tv_nsec=dt_nsec;
+    }
+    else
+    {
+      delta_t->tv_sec=dt_sec-1;
+      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
+    }
+  }
+  else
+  {
+    if(dt_nsec >= 0)
+    {
+      delta_t->tv_sec=dt_sec;
+      delta_t->tv_nsec=dt_nsec;
+    }
+    else
+    {
+      delta_t->tv_sec=dt_sec-1;
+      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
+    }
+  }
+
+  return(OK);
+}
+
 
 /* Function to perform Canny transform based on threshold */
 void CannyThreshold(int, void*)
@@ -140,9 +177,9 @@ void *canny_function(void *threadid)
     printf("\n\rTimestamp for the canny transform when the capture is stopped Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     endsec = timestamp.tv_sec;
     endnsec = timestamp.tv_nsec;
-    deltatimesec = endsec-initialsec;
-    deltatimensec = endnsec-initialnsec;
-    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
+    deltatimesec = delta_t(&initialsec, &endsec, &deltatimesec);
+    deltatimensec = delta_t(&initialnsec, &endnsec, &deltatimensec);
+    printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
     value = deltatimesec+(deltatimensec/1000000000);
     framerate = 1/value;
     printf("\n\rThe frame rate is %f", framerate);  
@@ -174,7 +211,7 @@ void *hough_function(void *threadid)
     printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     initialsec = timestamp.tv_sec;
     initialnsec = timestamp.tv_nsec;
-
+    
     /*Capture and store frame*/
     frameHough=cvQueryFrame(capture);
 
@@ -210,8 +247,8 @@ void *hough_function(void *threadid)
     printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     endsec = timestamp.tv_sec;
     endnsec = timestamp.tv_nsec;
-    deltatimesec = endsec-initialsec;
-    deltatimensec = endnsec-initialnsec;
+    deltatimesec = delta_t(&initialsec, &endsec, &deltatimesec);
+    deltatimensec = delta_t(&initialnsec, &endnsec, &deltatimensec);
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
     /*Calculate jitter*/
     value = deltatimesec+(deltatimensec/1000000000);
@@ -286,8 +323,8 @@ void *hough_elip_function(void *threadid)
     printf("\n\rTimestamp for hough eliptical transform as it ends: Seconds:%ld and Nanoseconds:%ld\n",timestamp.tv_sec, timestamp.tv_nsec);
     endsec = timestamp.tv_sec;
     endnsec = timestamp.tv_nsec;
-    deltatimesec = endsec - initialsec;
-    deltatimensec = endnsec- initialnsec;
+    deltatimesec = delta_t(&initialsec, &endsec, &deltatimesec);
+    deltatimensec = delta_t(&initialnsec, &endnsec, &deltatimensec);
 
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
@@ -437,23 +474,22 @@ int main(int argc, char** argv)
 		exit(-1);
 	}
 
-        if(pthread_create(&thread_hough_eliptical, &attr_hough_eliptical, hough_elip_function , (void *)0) !=0){
-		perror("ERROR; pthread_create:");
-		exit(-1);
-	}
-
 	if(pthread_create(&thread_hough, &attr_hough, hough_function, (void *)0) !=0){
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
 	
+       if(pthread_create(&thread_hough_eliptical, &attr_hough_eliptical, hough_elip_function , (void *)0) !=0){
+		perror("ERROR; pthread_create:");
+		exit(-1);
+	}
 
   printf("\n\rDone creating threads\r\n");
   printf("\n\n\n\rHorizontal resolution:%d and Vertical resolution:%d\n\r",HRES,VRES);
   /* Wait for threads to exit */
   pthread_join(thread_canny,NULL);
-  pthread_join(thread_hough_eliptical,NULL);
   pthread_join(thread_hough,NULL);
+  pthread_join(thread_hough_eliptical,NULL);
 
   cvReleaseCapture(&capture);
   cvDestroyWindow("Capture Example");
