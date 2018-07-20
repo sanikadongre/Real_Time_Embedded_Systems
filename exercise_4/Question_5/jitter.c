@@ -20,12 +20,12 @@
 using namespace cv;
 using namespace std;
 
-#define deadline_canny 50
-#define deadline_hough 90
-#define deadline_hough_eliptical 55
+#define deadline_canny 20
+#define deadline_hough 30
+#define deadline_hough_eliptical 40
 
-#define HRES 1280
-#define VRES  960
+#define HRES 160
+#define VRES 120
 #define MSEC 1000000
 
 /*Define structure for timestamp*/
@@ -116,7 +116,7 @@ void *canny_function(void *threadid)
 
     /*Get start time*/
     clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("Resolution is 1280X960\n");
+    printf("Resolution is 160X120\n");
     printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     initialsec = timestamp.tv_sec;
     initialnsec = timestamp.tv_nsec;
@@ -170,7 +170,7 @@ void *hough_function(void *threadid)
 
     /*Get start time*/
     clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("Resolution is 1280x960\n");
+    printf("Resolution is 160x120\n");
     printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     initialsec = timestamp.tv_sec;
     initialnsec = timestamp.tv_nsec;
@@ -242,7 +242,7 @@ void *hough_elip_function(void *threadid)
 
     /*Get capture start time*/
     clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("Resolution is 1280x960\n");
+    printf("Resolution is 160x120\n");
     printf("\n\rTimestamp for hough eliptical capture as it starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
     initialsec = timestamp.tv_sec;
     initialnsec = timestamp.tv_nsec;
