@@ -30,19 +30,19 @@ struct timespec deadline_hough_eliptical= {0,40000000};
 #define NSEC_PER_SEC (1000000000)
 #define OK (0)
 
-/*Define structure for timestamp*/
-struct timespec timestamp;
+
+
 
 /*Define semaphores*/
 sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
 
 
-      struct timespec initialsec = {0,0};
-      struct timespec initialnsec = {0,0};
-      struct timespec endsec= {0,0};
-      struct timespec endnsec = {0,0};
-      struct timespec deltatimesec = {0,0};
-      struct timespec deltatimensec = {0,0}; 
+      struct timespec initialsec;
+      struct timespec initialnsec;
+      struct timespec endsec;
+      struct timespec endnsec;
+      struct timespec deltatimesec;
+      struct timespec deltatimensec;
       struct timespec jitter;
 
 
@@ -158,12 +158,10 @@ void *canny_function(void *threadid)
     sem_wait(&semaphore_canny);
 
     /*Get start time*/
-    clock_gettime(CLOCK_REALTIME, &timestamp);
+    clock_gettime(CLOCK_REALTIME, &initialsec);
     printf("Resolution is 160X120\n");
-    printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
-    initialsec.tv_sec = timestamp.tv_sec;
-    initialnsec.tv_nsec = timestamp.tv_nsec;
-
+    printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
+    
     /*Capture and store frame*/
     frameCanny=cvQueryFrame(capture);
 
@@ -179,15 +177,15 @@ void *canny_function(void *threadid)
         return(0);
     }
 
-    clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("\n\rTimestamp for the canny transform when the capture is stopped Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
-    endsec.tv_sec = timestamp.tv_sec;
-    endnsec.tv_nsec = timestamp.tv_nsec;
+    clock_gettime(CLOCK_REALTIME, &endsec);
+    printf("\n\rTimestamp for the canny transform when the capture is stopped Seconds:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
     delta_t(&endsec, &initialsec, &deltatimesec);
     delta_t(&endnsec, &initialnsec, &deltatimensec);
     printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
-    value = (deltatimesec.tv_sec+(deltatimensec.tv_nsec/1000000000));
+    double value2 = deltatimensec.tv_nsec/1000000000;
+    value = (value2+ (deltatimesec.tv_sec));
     framerate = (1/value);
+    printf(" value is %f", value2);
     printf("\n\rThe frame rate is %f", framerate); 
     delta_t(&deadline_canny, &deltatimesec, &jitter);
     printf("\n\rCanny transform when Jitter is as shown in seconds %ld nanoseconds\n\r", jitter);
@@ -211,11 +209,9 @@ void *hough_function(void *threadid)
     vector<Vec4i> lines;
 
     /*Get start time*/
-    clock_gettime(CLOCK_REALTIME, &timestamp);
+    clock_gettime(CLOCK_REALTIME, &initialsec);
     printf("Resolution is 160x120\n");
-    printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
-    initialsec.tv_sec = timestamp.tv_sec;
-    initialnsec.tv_nsec = timestamp.tv_nsec;
+    printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
     
     /*Capture and store frame*/
     frameHough=cvQueryFrame(capture);
@@ -248,17 +244,16 @@ void *hough_function(void *threadid)
         return(0);
     }
     /*Get capture stop time*/
-    clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
-    endsec.tv_sec = timestamp.tv_sec;
-    endnsec.tv_nsec = timestamp.tv_nsec;
+    clock_gettime(CLOCK_REALTIME, &endsec);
+    printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
     delta_t(&endsec, &initialsec, &deltatimesec);
     delta_t(&endnsec, &initialnsec, &deltatimensec);
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
     /*Calculate jitter*/
-    
-    value= (deltatimesec.tv_sec+(deltatimensec.tv_nsec/1000000000));
+    double value2 = (deltatimensec.tv_nsec / 1000000000);
+    value = (deltatimesec.tv_sec+ value2);
     framerate = ((1/value));
+     printf(" value is %f", value2);
     printf("\n\rThe frame rate is %f", framerate);
     delta_t(&deadline_hough, &deltatimesec, &jitter);
     printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
@@ -281,11 +276,10 @@ void *hough_elip_function(void *threadid)
     vector<Vec3f> circles;
 
     /*Get capture start time*/
-    clock_gettime(CLOCK_REALTIME, &timestamp);
+    clock_gettime(CLOCK_REALTIME, &initialsec);
     printf("Resolution is 160x120\n");
-    printf("\n\rTimestamp for hough eliptical capture as it starts: Seconds:%ld and Nanoseconds:%ld",timestamp.tv_sec, timestamp.tv_nsec);
-    initialsec.tv_sec = timestamp.tv_sec;
-    initialnsec.tv_nsec = timestamp.tv_nsec;
+    printf("\n\rTimestamp for hough eliptical capture as it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
+    
 
     /*Capture and store frame*/
     frameHoughElip=cvQueryFrame(capture);
@@ -322,20 +316,19 @@ void *hough_elip_function(void *threadid)
 
     /*Get capture stop time*/
 
-    clock_gettime(CLOCK_REALTIME, &timestamp);
-    printf("\n\rTimestamp for hough eliptical transform as it ends: Seconds:%ld and Nanoseconds:%ld\n",timestamp.tv_sec, timestamp.tv_nsec);
-    endsec.tv_sec = timestamp.tv_sec;
-    endnsec.tv_nsec = timestamp.tv_nsec;
+    clock_gettime(CLOCK_REALTIME, &endsec);
+    printf("\n\rTimestamp for hough eliptical transform as it ends: Seconds:%ld and Nanoseconds:%ld\n",endsec.tv_sec, endsec.tv_nsec);
     delta_t(&endsec, &initialsec, &deltatimesec);
     delta_t(&endnsec, &initialnsec, &deltatimensec);
 
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
-    value = (deltatimesec.tv_sec+(deltatimensec.tv_nsec/1000000000));
+    double value2 = (deltatimensec.tv_nsec / 1000000000);
+    value = (deltatimesec.tv_sec+ value2);
     framerate = 1/value;
+     printf(" value is %f", value2);
     printf("\n\rThe frame rate is %f", framerate); 
-    /*Calculate jitter*/
-    printf("\n\rThe frame rate is %f", framerate); 	  
+    /*Calculate jitter*/	  
     delta_t(&deadline_hough_eliptical, &deltatimesec, &jitter);
     printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
 
