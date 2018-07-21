@@ -117,7 +117,6 @@ static void dump_ppm(const void *p, int size, unsigned int tag, struct timespec 
     
 }
 
-
 char pgm_header[]="P5\n#9999999999 sec 9999999999 msec \n"HRES_STR" "VRES_STR"\n255\n";
 char pgm_dumpname[]="test00000000.pgm";
 
@@ -149,7 +148,7 @@ static void dump_pgm(const void *p, int size, unsigned int tag, struct timespec 
     
 }
 
-
+/*Function for conversion into rgb*/
 void yuv2rgb_float(float y, float u, float v, 
                    unsigned char *r, unsigned char *g, unsigned char *b)
 {
@@ -214,7 +213,7 @@ void yuv2rgb(int y, int u, int v, unsigned char *r, unsigned char *g, unsigned c
 
 unsigned int framecnt=0;
 unsigned char bigbuffer[(1280*960)];
-
+/*For processing the image*/
 static void process_image(const void *p, int size)
 {
     int i, newi, newsize=0;
@@ -288,7 +287,7 @@ static void process_image(const void *p, int size)
     fflush(stdout);
 }
 
-
+/*To read frames*/
 static int read_frame(void)
 {
     struct v4l2_buffer buf;
@@ -454,7 +453,7 @@ static void mainloop(void)
         if(count <= 0) break;
     }
 }
-
+/* Function to stop capturing*/
 static void stop_capturing(void)
 {
         enum v4l2_buf_type type;
@@ -472,7 +471,7 @@ static void stop_capturing(void)
                 break;
         }
 }
-
+/*Function to start capturing*/
 static void start_capturing(void)
 {
         unsigned int i;
@@ -668,7 +667,7 @@ static void init_userp(unsigned int buffer_size)
                 }
         }
 }
-
+/*Initialization of device*/
 static void init_device(void)
 {
     struct v4l2_capability cap;
@@ -813,7 +812,7 @@ static void init_device(void)
     }
 }
 
-
+/*Function to close device*/
 static void close_device(void)
 {
         if (-1 == close(fd))
@@ -821,7 +820,7 @@ static void close_device(void)
 
         fd = -1;
 }
-
+/*Function to open device*/
 static void open_device(void)
 {
         struct stat st;

@@ -36,15 +36,16 @@ struct timespec deadline_hough_eliptical= {0,40000000};
 /*Define semaphores*/
 sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
 
+/*struct*/
 
-      struct timespec initialsec;
-      struct timespec endsec;
-      struct timespec deltatime;
-      struct timespec jitter;
+  struct timespec initialsec;
+  struct timespec endsec;
+  struct timespec deltatime;
+  struct timespec jitter;
 
 
-       double framerate;
-       double value;
+  double framerate;
+  double value;
 
 /* Threads for each transform */
 pthread_t thread_canny;
@@ -57,9 +58,9 @@ pthread_attr_t attr_hough;
 pthread_attr_t attr_hough_eliptical;
 pthread_attr_t attr_main_sched;
 
-int max_priority, min_priority;
+int max_priority, min_priority; //max and min priority
 
-
+/*Defining sched parameters*/
 
 struct sched_param canny_param;
 struct sched_param hough_elip_param;
@@ -86,7 +87,7 @@ IplImage* frameHoughElip;
 
 CvCapture* capture;
 
-
+/*Function to calculate difference between stop and start time*/
 int delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
 {
   int dt_sec=stop->tv_sec - start->tv_sec;
@@ -206,7 +207,7 @@ void *hough_function(void *threadid)
     printf("Resolution is 160x120\n");
     printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
     
-    /*Capture and store frame*/
+    /*Capturing and storing of frame*/
     frameHough=cvQueryFrame(capture);
 
     /*Convert to matrix*/
@@ -241,12 +242,13 @@ void *hough_function(void *threadid)
     printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
     delta_t(&endsec, &initialsec, &deltatime);
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
-    /*Calculate jitter*/
+    /*frame rate per seconds calculation*/
     framerate = NSEC_PER_SEC/deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate);
     delta_t(&deadline_hough, &deltatime, &jitter);
+     /*calculating jitter*/
     printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
-    /*Release semaphore foor next thread*/
+    /*Release semaphore for next thread*/
     sem_post(&semaphore_hough_eliptical);
   }
     pthread_exit(NULL);
@@ -310,14 +312,21 @@ void *hough_elip_function(void *threadid)
 
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
+<<<<<<< HEAD
     framerate = NSEC_PER_SEC/ deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f\n", framerate); 
     /*Calculate jitter*/	  
     delta_t(&deadline_hough_eliptical, &deltatime, &jitter);
     printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
+=======
+    framerate = NSEC_PER_SEC/ deltatime.tv_nsec;                     /*Frame rate calculation*/
+    printf("\n\rThe frame rate is %f", framerate);                  
+    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);        /*Calculating jitter*/
+    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter); /*jitter print*/
+>>>>>>> c4b53a73603867c34679981ed52a15f05b8afb10
 
     /*Release semaphore for next thread*/
-    sem_post(&semaphore_canny);
+    sem_post(&semaphore_canny); 
   }
   pthread_exit(NULL);
 }
@@ -344,7 +353,7 @@ void print_scheduler(void)
        printf("Pthread Policy is UNKNOWN\n");
    }
 }
-
+/*The main function*/
 int main(int argc, char** argv)
 {
 	int dev=0;
@@ -372,7 +381,7 @@ int main(int argc, char** argv)
 	/*Initialise threads and attributes*/
 	pthread_attr_init(&attr_main_sched);
 	pthread_attr_setinheritsched(&attr_main_sched,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_main_sched,SCHED_FIFO);
+	pthread_attr_setschedpolicy(&attr_main_sched,SCHED_FIFO);    /*sched_fifo attributes*/
 	main_param.sched_priority=max_priority;
 
 	pthread_attr_init(&attr_canny);
@@ -415,7 +424,7 @@ int main(int argc, char** argv)
 	if(scope == PTHREAD_SCOPE_SYSTEM)
 	  printf("PTHREAD SCOPE SYSTEM\n");
 	else if (scope == PTHREAD_SCOPE_PROCESS)
-	  printf("PTHREAD SCOPE PROCESS\n");
+	  printf("PTHREAD SCOPE PROCESS\n");  
 	else
 	  printf("PTHREAD SCOPE UNKNOWN\n");
 

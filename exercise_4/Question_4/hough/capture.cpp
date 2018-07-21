@@ -24,7 +24,7 @@ int main( int argc, char** argv )
     cvNamedWindow("Capture Example", CV_WINDOW_AUTOSIZE);
     //CvCapture* capture = (CvCapture *)cvCreateCameraCapture(0);
     //CvCapture* capture = (CvCapture *)cvCreateCameraCapture(argv[1]);
-    CvCapture* capture;
+    CvCapture* capture;   //Image capture pointer
     IplImage* frame;
     int dev=0;
     Mat gray, canny_frame, cdst;
@@ -50,15 +50,15 @@ int main( int argc, char** argv )
 
     while(1)
     {
-        frame=cvQueryFrame(capture);
+        frame=cvQueryFrame(capture);   //OpenCV queryframe for capturing frame
 
-        Mat mat_frame(frame);
-        Canny(mat_frame, canny_frame, 50, 200, 3);
+        Mat mat_frame(frame);       //using mat_frame for frame
+        Canny(mat_frame, canny_frame, 50, 200, 3);    //performing canny
 
         //cvtColor(canny_frame, cdst, CV_GRAY2BGR);
         //cvtColor(mat_frame, gray, CV_BGR2GRAY);
 
-        HoughLinesP(canny_frame, lines, 1, CV_PI/180, 50, 50, 10);
+        HoughLinesP(canny_frame, lines, 1, CV_PI/180, 50, 50, 10); //HoughlinesP function of OpenCV for detecting lines
 
         for( size_t i = 0; i < lines.size(); i++ )
         {
@@ -69,13 +69,13 @@ int main( int argc, char** argv )
      
         if(!frame) break;
 
-        cvShowImage("Capture Example", frame);
+        cvShowImage("Capture Example", frame);    //Function to show image
 
         char c = cvWaitKey(10);
         if( c == 27 ) break;
     }
 
-    cvReleaseCapture(&capture);
-    cvDestroyWindow("Capture Example");
+    cvReleaseCapture(&capture);  //For releasing capture 
+    cvDestroyWindow("Capture Example"); //For destroying window
     
 };
