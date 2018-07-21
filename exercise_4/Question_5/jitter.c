@@ -38,16 +38,13 @@ sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
 
 
       struct timespec initialsec;
-      struct timespec initialnsec;
       struct timespec endsec;
-      struct timespec endnsec;
-      struct timespec deltatimesec;
-      struct timespec deltatimensec;
+      struct timespec deltatime;
       struct timespec jitter;
 
 
-      float framerate;
-      double value;
+       double framerate;
+       double value;
 
 /* Threads for each transform */
 pthread_t thread_canny;
@@ -179,15 +176,11 @@ void *canny_function(void *threadid)
 
     clock_gettime(CLOCK_REALTIME, &endsec);
     printf("\n\rTimestamp for the canny transform when the capture is stopped Seconds:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatimesec);
-    delta_t(&endnsec, &initialnsec, &deltatimensec);
-    printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
-    double value2 = deltatimensec.tv_nsec/1000000000;
-    value = (value2+ (deltatimesec.tv_sec));
-    framerate = (1/value);
-    printf(" value is %f", value2);
+    delta_t(&endsec, &initialsec, &deltatime);
+    printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
+    framerate = NSEC_PER_SEC / deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate); 
-    delta_t(&deadline_canny, &deltatimesec, &jitter);
+    delta_t(&deadline_canny, &deltatime, &jitter);
     printf("\n\rCanny transform when Jitter is as shown in seconds %ld nanoseconds\n\r", jitter);
 
     /*release semaphore for next thread*/
@@ -246,19 +239,14 @@ void *hough_function(void *threadid)
     /*Get capture stop time*/
     clock_gettime(CLOCK_REALTIME, &endsec);
     printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatimesec);
-    delta_t(&endnsec, &initialnsec, &deltatimensec);
-    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
+    delta_t(&endsec, &initialsec, &deltatime);
+    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
     /*Calculate jitter*/
-    double value2 = (deltatimensec.tv_nsec / 1000000000);
-    value = (deltatimesec.tv_sec+ value2);
-    framerate = ((1/value));
-     printf(" value is %f", value2);
+    framerate = NSEC_PER_SEC/deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate);
-    delta_t(&deadline_hough, &deltatimesec, &jitter);
+    delta_t(&deadline_hough, &deltatime, &jitter);
     printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
     /*Release semaphore foor next thread*/
-    //usleep(311000);
     sem_post(&semaphore_hough_eliptical);
   }
     pthread_exit(NULL);
@@ -318,18 +306,14 @@ void *hough_elip_function(void *threadid)
 
     clock_gettime(CLOCK_REALTIME, &endsec);
     printf("\n\rTimestamp for hough eliptical transform as it ends: Seconds:%ld and Nanoseconds:%ld\n",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatimesec);
-    delta_t(&endnsec, &initialnsec, &deltatimensec);
+    delta_t(&endsec, &initialsec, &deltatime);
 
     printf("circles.size = %d\n", circles.size());
-    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatimesec, deltatimensec);
-    double value2 = (deltatimensec.tv_nsec / 1000000000);
-    value = (deltatimesec.tv_sec+ value2);
-    framerate = 1/value;
-     printf(" value is %f", value2);
+    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
+    framerate = NSEC_PER_SEC/ deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate); 
     /*Calculate jitter*/	  
-    delta_t(&deadline_hough_eliptical, &deltatimesec, &jitter);
+    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);
     printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
 
     /*Release semaphore for next thread*/
