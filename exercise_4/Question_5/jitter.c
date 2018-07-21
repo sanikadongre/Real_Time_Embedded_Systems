@@ -156,7 +156,7 @@ void *canny_function(void *threadid)
 
     /*Get start time*/
     clock_gettime(CLOCK_REALTIME, &initialsec);
-    printf("Resolution is 160X120\n");
+    printf("Resolution is 160x120\n");
     printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
     
     /*Capture and store frame*/
@@ -311,7 +311,7 @@ void *hough_elip_function(void *threadid)
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
     framerate = NSEC_PER_SEC/ deltatime.tv_nsec;
-    printf("\n\rThe frame rate is %f", framerate); 
+    printf("\n\rThe frame rate is %f\n", framerate); 
     /*Calculate jitter*/	  
     delta_t(&deadline_hough_eliptical, &deltatime, &jitter);
     printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
