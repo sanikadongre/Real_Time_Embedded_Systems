@@ -12,6 +12,7 @@
 #include <sched.h>
 #include <time.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define NUM_THREADS 2
 #define THREAD_1 1
