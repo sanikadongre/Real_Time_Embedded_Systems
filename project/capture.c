@@ -9,19 +9,12 @@
 #include <sstream>
 #include <fstream>
 #include <getopt.h>            
-#include <time.h>
-#include <fcntl.h>             
+#include <time.h>             
 #include <unistd.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
 #include <mqueue.h>
-#include <opencv2/highgui/highgui.hpp>
+#include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio.hpp>
 #define mq_ppm "/ppm_writer_mq"
