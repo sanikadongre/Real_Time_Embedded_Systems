@@ -1,21 +1,23 @@
 
-CC=	gcc
+CC=g++
 
 CFLAGS=	-O0	-g
 
-LIBS=	-lrt
+LIBS= -lrt
+
+CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video
  
-CFILES= capture.c
+CPPFILES= capture.cpp
 
-SRCS=	${CFILES}
-OBJS=	${CFILES:.c=.o}
+CPPOBJS= ${CPPFILES:.cpp=.o}
 
-build:	capture
+build:	capture 
 
 clean:
 	-rm -f *.o *.d
 	-rm -f capture
 
-capture:	${OBJS}
-	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	$(LIBS)
+capture:	capture.o
+	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)
+
 
