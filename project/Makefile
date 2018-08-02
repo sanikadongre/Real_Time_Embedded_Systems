@@ -1,10 +1,10 @@
-CC=g++
+INCLUDES=	-I/usr/local/opencv/include
 
-CFLAGS=	-O0	-g
+CC=	g++
 
-LIBS= -lrt
+CFLAGS=	-O0	-g	-std=c++11	$(INCLUDES)
 
-CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video
+CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video -lpthread -lrt 
  
 CPPFILES= capture.cpp
 
@@ -17,6 +17,6 @@ clean:
 	-rm -f capture
 
 capture:	capture.o
-	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)
+	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)	$(INCLUDES)
 
 
