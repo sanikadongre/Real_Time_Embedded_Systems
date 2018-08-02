@@ -12,19 +12,19 @@ CFILES=
 
 SRCS= ${HFILES} ${CFILES}
 
-#all:	videothread
-all:	videothread
+
+all:	capture
 
 clean:
 	-rm -f *.o *.d *.ppm *.jpg
 
-	-rm -f videothread
+	-rm -f capture
 
 
 distclean:
 	-rm -f *.o *.d
 
-videothread: videothread.o
+capture:	capture.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $(INCLUDE_DIRS) -o $@ $@.o `pkg-config --libs opencv` $(CPPLIBS)
 
 
