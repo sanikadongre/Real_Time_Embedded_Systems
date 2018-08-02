@@ -15,13 +15,14 @@
 #include <sys/ipc.h>
 #include <mqueue.h>
 #include <iostream>
+#include <iomanip>
 #include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
-//#include <opencv/videoio.hpp>
+//#include </home/pi/opencv-3.1.0/modules/videoio/include/opencv2/videoio.hpp>
 #define mq_ppm "/ppm_writer_mq"
-#define mq_jpeg "/jpg_writer_mq"
+#define mq_jpeg "/jpeg_writer_mq"
 #define ERROR -1
-#define threads_count 3
+#define threads_count 4
 #define frames_count 10
 #define mega 1000000
 #define thousand 1000
@@ -206,7 +207,7 @@ void *thread_write(void *threadd)
       outfile.open (name.str(), ios::in|ios::out|ios::trunc);
       temp1.open("results.txt", ios::in|ios::out);
       temp.open("output.out", ios::in);
-      outfile << "P6" << endl << "#Prescise Time Stamp is: " << setprecision(10) << fixed << start_capture/thousand << " seconds" << endl << "#System Specs are: " << temp.rdbuf() << temp1.rdbuf();
+      outfile << "P6" << endl << "#Prescise Time Stamp is: " << setprecision(5) << fixed << start_capture/thousand << " seconds" << endl << "#System Specs are: " << temp.rdbuf() << temp1.rdbuf();
       outfile.close();
       temp.close();
       f++;
@@ -321,8 +322,8 @@ int main(int argc, char *argv[])
     param[0].sched_priority=max_priority-1;
     pthread_attr_setschedparam(&sched_attr[0], &param[0]);
     pthread_create(&threads[0],&sched_attr[0], adder, (void*) (NULL));
-    //CPU_ZERO(&cpuset1);
-    //CPU_SET(2, &cpuset1);
+    CPU_ZERO(&cpuset1);
+    CPU_SET(2, &cpuset1);
     for(f=1;f<threads_count-1;f++)
     {
       prio=pthread_attr_setinheritsched(&sched_attr[f], PTHREAD_EXPLICIT_SCHED);
