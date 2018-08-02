@@ -15,8 +15,7 @@
 #include <sys/ipc.h>
 #include <mqueue.h>
 #include <iostream>
-#include "opencv/core/core.hpp"
-#include "opencv/highgui/highgui.hpp"
+#include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio.hpp>
 #define mq_ppm "/ppm_writer_mq"
