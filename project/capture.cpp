@@ -15,15 +15,15 @@
 #include <sys/ipc.h>
 #include <mqueue.h>
 #include <iostream>
-#include "opencv/core/core.hpp"
-#include "opencv/highgui/highgui.hpp"
+#include <iomanip>
+#include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/videoio.hpp>
+//#include <opencv2/videoio.hpp>
 #define mq_ppm "/ppm_writer_mq"
-#define mq_jpeg "/jpg_writer_mq"
+#define mq_jpeg "/jpeg_writer_mq"
 #define ERROR -1
-#define threads_count 3
-#define frames_count 10
+#define threads_count 4
+#define frames_count 2000
 #define mega 1000000
 #define thousand 1000
 using namespace cv;
@@ -66,7 +66,7 @@ void time_func_delay(long int time_sec, long int time_nsec)
 
   do
   {
-    time_nsec(&time_end, &time_left);
+    nanosleep(&time_end, &time_left);
 
     time_end.tv_sec = time_left.tv_sec;
     time_end.tv_nsec = time_left.tv_nsec;
@@ -110,6 +110,7 @@ void destroy_mqueue(void)
   mq_close(mqueue_jpeg);
   mq_unlink(mq_ppm);
   mq_unlink(mq_jpeg);
+ 
 }
 
 
@@ -123,17 +124,15 @@ void *frame_thread(void *threadd)
     char *frame_pointer;
     char buffer_arr[sizeof(char *)];
     frame_pointer =  (char *) malloc(sizeof(frame.data));
-
     system("uname -a > output.out");
-
-    while(i < frames_count)
+    while(f < frames_count)
     {
      
         sem_wait(&semaphore);
         start_capture= time_func_msec();
         printf("Frame: %d\n", f);
         printf("Timestamp is: %0.8lf seconds\n", start_capture/thousand);
-        cap.open(dev);
+        cap.open(device);
         cap >> frame; 
         cap.release();
         frame_pointer = (char *) frame.data;
@@ -143,7 +142,6 @@ void *frame_thread(void *threadd)
           printf("Null pointer\n");
           break;
         }
-
         if(mq_send(mqueue_frame, buffer_arr, mqueue_attr.mq_msgsize, 30) == ERROR)
         {
           perror("Error in sending message queue for a ppm image\n");
@@ -153,10 +151,11 @@ void *frame_thread(void *threadd)
         {
           perror("Error in sending message queue for a jpeg image");
         }
+
         f++;
         end_time = time_func_msec();
         run_time = (end_time - start_capture);
-        printf("The run time for capture is: %0.8lf\n", exec_time/thousand);
+        printf("The run time for capture is: %0.8lf\n", run_time/thousand);
         if(f>0){
         jitter = run_time - old_time;
         }
@@ -164,10 +163,13 @@ void *frame_thread(void *threadd)
         jitter_acc += jitter;
         sem_post(&semaphore_storing);
         sem_post(&jpeg_semaphore);
+        jitter_avg = jitter_acc/frames_count;
+        printf("\nAverage jitter for captured frames is: %0.8lf miliseconds\n\n", jitter_avg);
+        printf("jitter avd\n");
+        pthread_exit(NULL);
+      
     }
-    jitter_avg = jitter_acc/frames_count;
-    printf("\nAverage jitter for captured frames is: %0.8lf miliseconds\n\n", jitter_avg);
-    pthread_exit(NULL);
+    
 }
 void *thread_write(void *threadd)
 {
@@ -193,7 +195,7 @@ void *thread_write(void *threadd)
         memcpy(&frame_pointer, buffer_arr, sizeof(char *));
         frame = Mat(480, 640, CV_8UC3, frame_pointer);
       }
-      imwrite(name.str(), frame_ppm, compression_params);
+      imwrite(name.str(), frame, compression_params);
       std::fstream outfile;
       std::fstream temp;
       std::fstream temp1;
@@ -233,8 +235,8 @@ void *thread_jpeg(void *threadd)
     {
         sem_wait(&jpeg_semaphore);
         start_frame = time_func_msec();
-        name << "frame_comp" << i << ".jpg";
-        name1 << "frame_" << i << ".ppm";
+        name << "frame_comp" << f << ".jpg";
+        name1 << "frame" << f << ".ppm";
         if(mq_receive(mqueue_jpeg, buffer_arr, mqueue_jpeg_attr.mq_msgsize, &thread_priorities) == ERROR)
         {
           perror("mq_receive error for the jpeg image\n");
@@ -244,7 +246,7 @@ void *thread_jpeg(void *threadd)
           memcpy(&frame_pointer, buffer_arr, sizeof(char *));
           frame_jpeg = Mat(480, 640, CV_8UC3, frame_pointer);
         }
-        imwrite(name.str(), frame_jpg, compression_params);
+        imwrite(name.str(), frame_jpeg, compression_params);
         name.str("");
         name1.str("");
         f++;
@@ -280,7 +282,7 @@ int main(int argc, char *argv[])
 {
     if(argc > 1)
     {
-        sscanf(argv[1], "%d", &dev);
+        sscanf(argv[1], "%d", &device);
         printf("Using %s\n", argv[1]);
     }
     else if(argc == 1){
@@ -288,7 +290,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf(" capture[dev] is displayed\n");
+        printf(" capture[device] is displayed\n");
         exit(-1);
     }
     int f = 0, prio;
@@ -316,22 +318,23 @@ int main(int argc, char *argv[])
     CPU_SET(1, &cpuset);
     for(f=0;f<threads_count;f++)
     {
-        pthread_attr_init(&sched_attr[i]);
+        pthread_attr_init(&sched_attr[f]);
     }
     pthread_attr_setaffinity_np(&sched_attr[0], sizeof(cpu_set_t), &cpuset);
     param[0].sched_priority=max_priority-1;
     pthread_attr_setschedparam(&sched_attr[0], &param[0]);
-    pthread_create(&threads[0], (&sched_attr[0], adder, (void*) (NULL));
+    pthread_create(&threads[0],&sched_attr[0], adder, (void*) (NULL));
     CPU_ZERO(&cpuset1);
     CPU_SET(2, &cpuset1);
-    for(f=1;f<threads_count-1;f++){
-      prio=pthread_attr_setinheritsched(&sched_attr[i], PTHREAD_EXPLICIT_SCHED);
-      prio=pthread_attr_setschedpolicy(&sched_attr[i], SCHED_FIFO);
-      pthread_attr_setaffinity_np(&sched_attr[i], sizeof(cpu_set_t), &cpuset1);
-      param[i].sched_priority= max_priority-i-1;
-      pthread_attr_setschedparam(&sched_attr[i], &param[i]);
+    for(f=1;f<threads_count-1;f++)
+    {
+      prio=pthread_attr_setinheritsched(&sched_attr[f], PTHREAD_EXPLICIT_SCHED);
+      prio=pthread_attr_setschedpolicy(&sched_attr[f], SCHED_FIFO);
+      pthread_attr_setaffinity_np(&sched_attr[f], sizeof(cpu_set_t), &cpuset1);
+      param[f].sched_priority= max_priority-f-1;
+      pthread_attr_setschedparam(&sched_attr[f], &param[f]);
     }
-    pthread_create(&threads[1], &sched_attr[1], thread_frame, (void*)(NULL));
+    pthread_create(&threads[1], &sched_attr[1], frame_thread, (void*)(NULL));
     pthread_create(&threads[2], &sched_attr[2], thread_write, (void*)(NULL));
     pthread_create(&threads[3], &sched_attr[3], thread_jpeg, (void*)(NULL));
     for(f=0;f<threads_count;f++)
@@ -341,3 +344,6 @@ int main(int argc, char *argv[])
     destroy_mqueue();
     return 0;
 }
+
+
+

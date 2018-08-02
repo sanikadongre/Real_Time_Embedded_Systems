@@ -1,3 +1,4 @@
+INCLUDES=	-I/usr/include
 
 CC=	g++
 
@@ -15,5 +16,5 @@ clean:
 	-rm -f *.o *.d
 	-rm -f capture
 
-capture:	capture.o
-	$(CC)	$(LDFLAGS)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)	
+capture:	capture.o	
+	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	capture	capture.o	`pkg-config --libs opencv`	$(CPPLIBS)		
