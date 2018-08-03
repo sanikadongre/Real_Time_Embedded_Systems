@@ -4,153 +4,121 @@
 * Reference:Sam Siewart: http://mercury.pr.erau.edu/~siewerts/cs415/code/computer_vision_cv3_tested/       
 ****************************************************************************************************/
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-#include <time.h>
-#include <sys/param.h>
-#include <pthread.h>
+#include <string.h>
 #include <semaphore.h>
-
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp> 
-#include <opencv2/imgproc/imgproc.hpp>
-
+#include <stdbool.h>
+#include <pthread.h>
+#include <stdbool.h>         
+#include <fstream> 
+#include <sstream> 
+#include <sched.h>          
+#include <time.h>
+#include <fcntl.h>             
+#include <unistd.h>
+#include <sys/msg.h>
+#include <sys/ipc.h>
+#include <mqueue.h>
+#include <iostream>
+#include <iomanip>
+#include <opencv/highgui.h>
+#include <opencv2/opencv.hpp>
+//#include <opencv2/videoio.hpp>
+#define mq_ppm "/ppm_writer_mq"
+#define mq_jpeg "/jpeg_writer_mq"
+#define ERROR -1
+#define threads_count 4
+#define frames_count 2000
+#define mega 1000000
+#define thousand 1000
 using namespace cv;
 using namespace std;
+int device=0;
+VideoCapture cap(1);
 
-struct timespec deadline_canny = {0,20000000};
-struct timespec deadline_hough = {0,30000000};
-struct timespec deadline_hough_eliptical= {0,40000000};
+static struct timespec time_end = {0, 0};
+static struct timespec time_left = {0, 0};
+double start_capture = 0;
 
-#define HRES 160
-#define VRES 120
-#define MSEC 1000000
-#define NSEC_PER_SEC (1000000000)
-#define OK (0)
+static mqd_t mqueue_frame;
+static mqd_t mqueue_jpeg;
+struct mq_attr mqueue_attr;
+struct mq_attr mqueue_jpeg_attr;
 
+typedef struct
+{
+    int threadid;
+} threadParams_t;
 
-
-
-/*Define semaphores*/
-sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
-
-/*struct*/
-
-  struct timespec initialsec;
-  struct timespec endsec;
-  struct timespec deltatime;
-  struct timespec jitter;
-
-
-  double framerate;
-  double value;
-
-/* Threads for each transform */
-pthread_t thread_canny;
-pthread_t thread_hough_eliptical;
-pthread_t thread_hough;
-
-/*pthread attribute structures*/
-pthread_attr_t attr_canny;
-pthread_attr_t attr_hough;
-pthread_attr_t attr_hough_eliptical;
-pthread_attr_t attr_main_sched;
-
-int max_priority, min_priority; //max and min priority
-
-/*Defining sched parameters*/
-
-struct sched_param canny_param;
-struct sched_param hough_elip_param;
-struct sched_param hough_param;
+pthread_t threads[threads_count];
+pthread_attr_t sched_attr[threads_count];
+int max_priority, min_priority;
+struct sched_param param[threads_count];
 struct sched_param main_param;
-struct sched_param nrt_param;
+pthread_attr_t attr_main;
+pid_t priority_main;
+sem_t semaphore, jpeg_semaphore, semaphore_storing;
 
-
-// Transform display window
-char timg_window_name[] = "Edge Detector Transform";
-
-/* Canny transform parameters */
-int lowThreshold = 0;
-int const max_lowThreshold = 100;
-int kernel_size = 3;
-int edgeThresh = 1;
-int ratio = 3;
-Mat canny_frame,cdst, timg_gray, timg_grad;
-
-/*Define variable to store each frame as image*/
-IplImage* frameCanny;
-IplImage* frameHough;
-IplImage* frameHoughElip;
-
-CvCapture* capture;
-
-/*Function to calculate difference between stop and start time*/
-int delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
+double time_func_msec();
+void time_func_delay(long int time_sec, long int time_nsec);
+void generate_mqueue(void);
+void destroy_mqueue(void);
+void time_func_delay(long int time_sec, long int time_nsec)
 {
-  int dt_sec=stop->tv_sec - start->tv_sec;
-  int dt_nsec=stop->tv_nsec - start->tv_nsec;
+   time_end.tv_sec = time_sec;
+   time_end.tv_nsec = time_nsec;
 
-  if(dt_sec >= 0)
+  do
   {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
+    nanosleep(&time_end, &time_left);
+
+    time_end.tv_sec = time_left.tv_sec;
+    time_end.tv_nsec = time_left.tv_nsec;
   }
-  else
-  {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
-  }
-
-  return(OK);
-}
-
-
-/* Function to perform Canny transform based on threshold */
-void CannyThreshold(int, void*)
-{
-    Mat mat_frame(frameCanny);
-
-    cvtColor(mat_frame, timg_gray, CV_RGB2GRAY);
-
-    // Reduce noise with a kernel 3x3
-    blur( timg_gray, canny_frame, Size(3,3) );
-
-    // Canny detector
-    Canny( canny_frame, canny_frame, lowThreshold, lowThreshold*ratio, kernel_size );
-
-    // Using Canny's output as a mask, we display our result
-    timg_grad = Scalar::all(0);
-
-    mat_frame.copyTo( timg_grad, canny_frame);
-
-    /*Open window to display result*/
-    //imshow( "Canny Tranasform", timg_grad );
+  while ((time_left.tv_sec > 0) || (time_left.tv_nsec > 0));
 
 }
+double time_func_msec(void)
+{
+  struct timespec time_sample = {0, 0};
 
+  clock_gettime(CLOCK_REALTIME, &time_sample);
+  double time_val = ((time_sample.tv_sec)*thousand) + ((time_sample.tv_nsec)/mega);
+  return time_val;
+}
+ void generate_mqueue(void)
+{
+  mqueue_attr.mq_maxmsg = frames_count;
+  mqueue_attr.mq_msgsize = sizeof(char *);
+  mqueue_attr.mq_flags = 0;
+
+  mqueue_frame = mq_open(mq_ppm, O_CREAT|O_RDWR, 0644, &mqueue_attr);
+  if(mqueue_frame == (mqd_t)ERROR)
+    perror("mq_open");
+
+  mqueue_jpeg_attr.mq_maxmsg = frames_count;
+  mqueue_jpeg_attr.mq_msgsize = sizeof(char *);
+  mqueue_jpeg_attr.mq_flags = 0;
+
+  mqueue_jpeg = mq_open(mq_jpeg, O_CREAT|O_RDWR, 0644, &mqueue_jpeg_attr);
+  if(mqueue_jpeg == (mqd_t)ERROR)
+    perror("mq_open");
+}
+void destroy_mqueue(void)
+{
+  mq_close(mqueue_frame);
+  mq_close(mqueue_jpeg);
+  mq_unlink(mq_ppm);
+  mq_unlink(mq_jpeg);
+}
 /* Thread to perform canny transform*/
-void *canny_function(void *threadid)
+void *frame_thread(void *threadd)
 {
-  long val = 0;
+   int f=0;
+   double end_time = 0, run_time= 0, old_time = 0, jitter = 0, jitter_acc = 0, jitter_avg = 0;
+   Mat frame;
+	
   while(1){
     /*Hold semaphore*/
     sem_wait(&semaphore_canny);
@@ -485,3 +453,4 @@ int main(int argc, char** argv)
 
   printf("All done\n");
 }
+
