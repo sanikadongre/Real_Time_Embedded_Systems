@@ -56,6 +56,7 @@ pthread_attr_t sched_attr[threads_count];
 int max_priority, min_priority;
 struct sched_param param[threads_count];
 struct sched_param main_param;
+struct sched_param nrt_param;
 pthread_attr_t attr_main;
 pid_t priority_main;
 sem_t semaphore, jpeg_semaphore, semaphore_storing;
@@ -71,13 +72,18 @@ void time_func_delay(long int time_sec, long int time_nsec)
 
   do
   {
-    nanosleep(&time_end, &time_left);
-
-    time_end.tv_sec = time_left.tv_sec;
+   double t= nanosleep(&time_end, &time_left);
+    if(t==EINTR)
+    {
+     time_end.tv_sec = time_left.tv_sec;
     time_end.tv_nsec = time_left.tv_nsec;
   }
+	  else if(t>0)
+	  {
+		  perror("Sequencer nanosleep");
+		  exit(-1);
+	  }
   while ((time_left.tv_sec > 0) || (time_left.tv_nsec > 0));
-
 }
 double time_func_msec(void)
 {
@@ -118,339 +124,255 @@ void *frame_thread(void *threadd)
    int f=0;
    double end_time = 0, run_time= 0, old_time = 0, jitter = 0, jitter_acc = 0, jitter_avg = 0;
    Mat frame;
-	
-  while(1){
+   char *frame_pointer;
+   char buffer_arr[sizeof(char *)];
+   frame_pointer = (char *) malloc(sizeof(frame.data));
+   system("uname -a > output.out");
+   while(f < frames_count)
+   {
     /*Hold semaphore*/
-    sem_wait(&semaphore_canny);
-
-    /*Get start time*/
-    clock_gettime(CLOCK_REALTIME, &initialsec);
-    printf("Resolution is 160x120\n");
-    printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
-    
-    /*Capture and store frame*/
-    frameCanny=cvQueryFrame(capture);
-
-    if(!frameCanny)
-      return(0);
-
-    CannyThreshold(0, 0);
-
-    char q = cvWaitKey(33);
-    if( q == 'q' )
+    sem_wait(&semaphore);
+    start_capture = time_func_msec();
+    printf("Frame: %d\n", f);
+    printf("\n\rTimestamp is: %0.8lf seconds\n", start_capture/thousand);
+    cap.open(device);
+    cap >> frame;
+    cap.release();
+    frame_pointer = (char *) frame.data;
+    memcpy(buffer_arr, &frame_pointer, sizeof(char *));
+    /*if(frame_pointer==NULL)
     {
-        printf("got quit\n");
-        return(0);
-    }
+	printf("Null pointer\n");
+	break;
+    }*/
+    if(mq_send(mqueue_frame, buffer_arr, mqueue_attr.mq_msgsize, 30) == ERROR)
+       {
+	   perror("Error in sending message queue for a ppm image\n");
+        }
 
-    clock_gettime(CLOCK_REALTIME, &endsec);
-    printf("\n\rTimestamp for the canny transform when the capture is stopped Seconds:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatime);
-    printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
-    framerate = NSEC_PER_SEC / deltatime.tv_nsec;
-    printf("\n\rThe frame rate is %f", framerate); 
-    delta_t(&deadline_canny, &deltatime, &jitter);
-    printf("\n\rCanny transform when Jitter is as shown in seconds %ld nanoseconds\n\r", jitter);
+        if(mq_send(mqueue_jpeg, buffer_arr, mqueue_jpeg_attr.mq_msgsize, 30) == ERROR)
+        {
+          perror("Error in sending message queue for a jpeg image");
+        }
+        f++;
+        end_time = time_func_msec();
+        run_time = (end_time - start_capture);
+        printf("The run time for capture is: %0.8lf\n", run_time/thousand);
+        if(f>0)
+	{
+        jitter = run_time - old_time;
+        }
+        old_time = run_time;
+        jitter_acc += jitter;
+        sem_post(&semaphore_storing);
+       // sem_post(&jpeg_semaphore);
+        } 
+        jitter_avg = jitter_acc/frames_count;
+        printf("\nAverage jitter for captured frames is: %0.8lf miliseconds\n\n", jitter_avg);
+        pthread_exit(NULL);
 
-    /*release semaphore for next thread*/
-    sem_post(&semaphore_hough);
-  }
-  pthread_exit(NULL);
 }
-
-/* Thread to perform hough transform*/
-void *hough_function(void *threadid)
+void *thread_write(void *threadd)
 {
-  long val;
-  while(1){
-
-    /*Hold semaphore*/
-    sem_wait(&semaphore_hough);
-
-    Mat gray, canny_frame, cdst;
-    vector<Vec4i> lines;
-
-    /*Get start time*/
-    clock_gettime(CLOCK_REALTIME, &initialsec);
-    printf("Resolution is 160x120\n");
-    printf("\n\rTimestamp obtained when hough tranform starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
-    
-    /*Capturing and storing of frame*/
-    frameHough=cvQueryFrame(capture);
-
-    /*Convert to matrix*/
-    Mat mat_frame(frameHough);
-    Canny(mat_frame, canny_frame, 50, 200, 3);
-
-    cvtColor(canny_frame, cdst, CV_GRAY2BGR);
-    cvtColor(mat_frame, gray, CV_BGR2GRAY);
-
-    HoughLinesP(canny_frame, lines, 1, CV_PI/180, 50, 50, 10);
-
-    for( size_t i = 0; i < lines.size(); i++ )
+    int f = 0;
+    unsigned int thread_priorities;
+    Mat frame;
+    char *frame_pointer;
+    char buffer_arr[sizeof(char *)];
+    std::ostringstream name;
+    std::vector<int> compression_params;
+    compression_params.push_back(CV_IMWRITE_PXM_BINARY);
+    compression_params.push_back(1); 
+    while(f < frames_count)
     {
-      Vec4i l = lines[i];
-      line(mat_frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+      sem_wait(&semaphore_storing);
+      name << "frame_" << f << ".ppm";
+      if(mq_receive(mqueue_frame, buffer_arr, mqueue_attr.mq_msgsize, &thread_priorities) == ERROR)
+      {
+        perror("mq_receive for receiving error\n");
+      }
+      else
+      {
+        memcpy(&frame_pointer, buffer_arr, sizeof(char *));
+        frame = Mat(480, 640, CV_8UC3, frame_pointer);
+      }
+      imwrite(name.str(), frame, compression_params);
+      std::fstream outfile;
+      std::fstream temp;
+      std::fstream temp1;
+      outfile.open (name.str(), ios::in|ios::out);
+      outfile.seekp (ios::beg);
+      outfile << "  ";
+      temp.open("results.txt", ios::in|ios::out|ios::trunc);
+      temp << outfile.rdbuf();
+      outfile.close();
+      temp.close();
+      outfile.open (name.str(), ios::in|ios::out|ios::trunc);
+      temp1.open("results.txt", ios::in|ios::out);
+      temp.open("output.out", ios::in);
+      outfile << "P6" << endl << "#Prescise Time Stamp is: " << setprecision(10) << fixed << start_capture/thousand << " seconds" << endl << "#System Specs are: " << temp.rdbuf() << temp1.rdbuf();
+      outfile.close();
+      temp.close();
+      f++;
+      name.str("");
+      sem_post(&jpeg_semaphore);
     }
-
-
-    if(!frameHough)
-      return 0;
-
-    //cvShowImage("Capture Example", frameHough);
-
-    char q = cvWaitKey(33);
-    if( q == 'q' )
-    {
-        printf("got quit\n");
-        return(0);
-    }
-    /*Get capture stop time*/
-    clock_gettime(CLOCK_REALTIME, &endsec);
-    printf("\n\rTimestamp for hough transform when capture is stopped:%ld and Nanoseconds:%ld",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatime);
-    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
-    /*frame rate per seconds calculation*/
-    framerate = NSEC_PER_SEC/deltatime.tv_nsec;
-    printf("\n\rThe frame rate is %f", framerate);
-    delta_t(&deadline_hough, &deltatime, &jitter);
-     /*calculating jitter*/
-    printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
-    /*Release semaphore for next thread*/
-    sem_post(&semaphore_hough_eliptical);
-  }
     pthread_exit(NULL);
 }
-
-/* Thread to perform hough eliptical transform*/
-void *hough_elip_function(void *threadid)
+void *thread_jpeg(void *threadd)
 {
-  long val;
-  while(1){
-    /*Hold semaphhore*/
-    sem_wait(&semaphore_hough_eliptical);
+    Mat frame_jpeg;
+    int f = 0;
+    double start_frame = 0, end_frame= 0, run_time=0, old_time=0, jitter=0, jitter_acc=0, jitter_avg=0;
+    unsigned int thread_priorities;
+    char *frame_pointer;
+    char buffer_arr[sizeof(char *)];
+    std::ostringstream name, name1;
+    std::vector<int> compression_params;
+    compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+    compression_params.push_back(95); // #0 for P3 and #1 for P6
 
-    Mat gray;
-    vector<Vec3f> circles;
-
-    /*Get capture start time*/
-    clock_gettime(CLOCK_REALTIME, &initialsec);
-    printf("Resolution is 160x120\n");
-    printf("\n\rTimestamp for hough eliptical capture as it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
-    
-
-    /*Capture and store frame*/
-    frameHoughElip=cvQueryFrame(capture);
-
-    /*convert image to matrix and then to grayscale*/
-    Mat mat_frame(frameHoughElip);
-    cvtColor(mat_frame, gray, CV_BGR2GRAY);
-    GaussianBlur(gray, gray, Size(9,9), 2, 2);
-
-    HoughCircles(gray, circles, CV_HOUGH_GRADIENT, 1, gray.rows/8, 100, 50, 0, 0);
-
-    for( size_t i = 0; i < circles.size(); i++ )
+    while(f < frames_count)
     {
-      Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-      int radius = cvRound(circles[i][2]);
-      // circle center
-      circle( mat_frame, center, 3, Scalar(0,255,0), -1, 8, 0 );
-      // circle outline
-      circle( mat_frame, center, radius, Scalar(0,0,255), 3, 8, 0 );
+        sem_wait(&jpeg_semaphore);
+        start_frame = time_func_msec();
+        name << "frame_comp" << f << ".jpg";
+        name1 << "frame" << f << ".ppm";
+        if(mq_receive(mqueue_jpeg, buffer_arr, mqueue_jpeg_attr.mq_msgsize, &thread_priorities) == ERROR)
+        {
+          perror("mq_receive error for the jpeg image\n");
+        }
+        else
+        {
+          memcpy(&frame_pointer, buffer_arr, sizeof(char *));
+          frame_jpeg = Mat(480, 640, CV_8UC3, frame_pointer);
+        }
+        imwrite(name.str(), frame_jpeg, compression_params);
+        name.str("");
+        name1.str("");
+        f++;
+        end_frame = time_func_msec();
+        run_time = end_frame - start_frame;
+        printf("Jpeg run Time is: %0.8lf\n", run_time/thousand);
+        if(f>0){
+        jitter = run_time - old_time;
+        }
+        old_time = run_time;
+        jitter_acc += jitter;
     }
-
-
-    if(!frameHoughElip)
-      return(0);
-
-    ///cvShowImage("Capture Example", frameHoughElip);
-
-    char q = cvWaitKey(33);
-    if( q == 'q' )
-    {
-        printf("got quit\n");
-        return(0);
-    }
-
-    /*Get capture stop time*/
-
-    clock_gettime(CLOCK_REALTIME, &endsec);
-    printf("\n\rTimestamp for hough eliptical transform as it ends: Seconds:%ld and Nanoseconds:%ld\n",endsec.tv_sec, endsec.tv_nsec);
-    delta_t(&endsec, &initialsec, &deltatime);
-
-    printf("circles.size = %d\n", circles.size());
-    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
-<<<<<<< HEAD
-    framerate = NSEC_PER_SEC/ deltatime.tv_nsec;
-    printf("\n\rThe frame rate is %f\n", framerate); 
-    /*Calculate jitter*/	  
-    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);
-    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
-=======
-    framerate = NSEC_PER_SEC/ deltatime.tv_nsec;                     /*Frame rate calculation*/
-    printf("\n\rThe frame rate is %f", framerate);                  
-    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);        /*Calculating jitter*/
-    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter); /*jitter print*/
->>>>>>> c4b53a73603867c34679981ed52a15f05b8afb10
-
-    /*Release semaphore for next thread*/
-    sem_post(&semaphore_canny); 
-  }
-  pthread_exit(NULL);
+    jitter_avg = jitter_acc/frames_count;
+    printf("\nAverage compress jitter for images is: %0.8lf miliseconds\n\n", jitter_avg);
+    pthread_exit(NULL);
 }
-
-/* Print the current scheduling policy */
-void print_scheduler(void)
+void *adder(void *threadd)
 {
-   int schedType;
-
-   schedType = sched_getscheduler(getpid());
-
-   switch(schedType)
-   {
-     case SCHED_FIFO:
-	   printf("Pthread Policy is SCHED_FIFO\n");
-	   break;
-     case SCHED_OTHER:
-	   printf("Pthread Policy is SCHED_OTHER\n");
-       break;
-     case SCHED_RR:
-	   printf("Pthread Policy is SCHED_RR\n");
-	   break;
-     default:
-       printf("Pthread Policy is UNKNOWN\n");
+  int f = 0;
+  do
+  {
+      sem_post(&semaphore);
+      precisionDelay(1, 0);
+      f++;
    }
+   while (f<frames_count);
+   pthread_exit(NULL);
 }
+
 /*The main function*/
-int main(int argc, char** argv)
+int main(int argc, char *argv[])
 {
-	int dev=0;
-	int var, scope;
+	if(argc > 1)
+    {
+        sscanf(argv[1], "%d", &device);
+        printf("Using %s\n", argv[1]);
+    }
+    else if(argc == 1){
+        printf("The original one\n");
+    }
+    else
+    {
+        printf(" capture[device] is displayed\n");
+        exit(-1);
+    }
+    int f = 0, prio;
+    cap.set(CV_CAP_PROP_FRAME_HEIGHT, 640);
+    cap.set(CV_CAP_PROP_FRAME_WIDTH, 480);
+    cap.set(CV_CAP_PROP_FPS, 2000.0);
+    printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
+    cpu_set_t cpuset;
+    cpu_set_t cpuset1;
+    generate_mqueue();
+    priority_main =getpid();
+    max_priority = sched_get_priority_max(SCHED_FIFO);
+    min_priority = sched_get_priority_min(SCHED_FIFO);
+    prio=sched_getparam(priority_main, &main_param);
+    main_param.sched_priority= max_priority;
+    prio=sched_setscheduler(getpid(), SCHED_FIFO, &main_param);
+    if(prio < 0) 
+	    
+    {
+	    perror("main_param");
+    }
+    CPU_ZERO(&cpuset);
+    CPU_SET(1, &cpuset);
+    for(f=0; f< threads_count; f+++)
+    {
+    pthread_attr_init(&sched_attr[f]);
+    }
+    pthread_attr_setaffinity_np(&sched_attr[0], sizeof(cpu_set_t), &cpuset);
+    param[0].sched_priority=max_priority-1;
+    pthread_attr_setschedparam(&sched_attr[0], &param[0]);
+    pthread_attr_setschedparam(&attr_main, &main_param);
+    pthread_create(&threads[0], &sched_attr[0], adder, (void*) (NULL));
+    // setting core affinity
+    CPU_ZERO(&cpuset);
+    CPU_SET(2, &cpuset1);
 
-	/*Define gui window to open*/
-	//cvNamedWindow( timg_window_name, CV_WINDOW_NORMAL);
-
-	// Create a Trackbar for user to enter threshold
-	//createTrackbar( "Min Threshold:", timg_window_name, &lowThreshold, max_lowThreshold, CannyThreshold );
-    
-	/* Select the camera device */
-	capture = (CvCapture *)cvCreateCameraCapture(dev);
-	
-	/* Set the resolution */
-	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, HRES);
-	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, VRES);
-
-	printf("Before adjustments to scheduling policy:\n");
-	print_scheduler();
-
-	max_priority = sched_get_priority_max(SCHED_FIFO);
-	min_priority = sched_get_priority_min(SCHED_FIFO);
-
-	/*Initialise threads and attributes*/
-	pthread_attr_init(&attr_main_sched);
-	pthread_attr_setinheritsched(&attr_main_sched,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_main_sched,SCHED_FIFO);    /*sched_fifo attributes*/
-	main_param.sched_priority=max_priority;
-
-	pthread_attr_init(&attr_canny);
-	pthread_attr_setinheritsched(&attr_canny,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_canny,SCHED_FIFO);
-	canny_param.sched_priority=max_priority-1;
-
-	pthread_attr_init(&attr_hough_eliptical);
-	pthread_attr_setinheritsched(&attr_hough,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_hough,SCHED_FIFO);
-	hough_param.sched_priority=max_priority-2;
-
-	pthread_attr_init(&attr_hough);
-	pthread_attr_setinheritsched(&attr_hough_eliptical,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_hough_eliptical,SCHED_FIFO);
-	hough_elip_param.sched_priority=max_priority-3;
-
+    for(f=1;f<threads_count-1;f++)
+    {
+        pthread_attr_init(&sched_attr[f]);
+	pthread_attr_setinheritsched(&sched_attr[f],PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setschedpolicy(&sched_attr[f],SCHED_FIFO);    /*sched_fifo attributes*/
+        thread_attr_setaffinity_np(&sched_attr[f], sizeof(cpu_set_t), &cpuset1);
+        param[f].sched_priority= max_priority-f-1;
+        pthread_attr_setschedparam(&sched_attr[f], &param[f]);
+	pthread_attr_setschedparam(&attr_main, &main_param);
+    }
+   
 	/* Set scheduling policy */
-	var=sched_getparam(getpid(), &nrt_param);
-	if (var)
-	{
-		printf("ERROR; sched_setscheduler var is %d\n", var);
-		perror(NULL);
-		exit(-1);
-	}
-
-	var=sched_setscheduler(getpid(),SCHED_FIFO,&main_param);
-	if(var)
-	{
-		printf("ERROR; main sched_setscheduler var is %d\n",var);
-		perror(NULL);
-		exit(-1);
-	}
-
-	printf("After adjustments to scheduling policy:\n");
-	print_scheduler();
-
-	pthread_attr_getscope(&attr_canny, &scope);
-
-	if(scope == PTHREAD_SCOPE_SYSTEM)
-	  printf("PTHREAD SCOPE SYSTEM\n");
-	else if (scope == PTHREAD_SCOPE_PROCESS)
-	  printf("PTHREAD SCOPE PROCESS\n");  
-	else
-	  printf("PTHREAD SCOPE UNKNOWN\n");
-
-
-	// initialize the signalling semaphores
-	if (sem_init (&semaphore_canny, 0, 1))
-	{
-	printf ("Failed to initialize semaphore_canny semaphore\n");
-	exit (-1);
-	}
-
-	if (sem_init (&semaphore_hough, 0, 0))
-	{
-	printf ("Failed to initialize semaphore_hough semaphore\n");
-	exit (-1);
-	}
-
-	if (sem_init (&semaphore_hough_eliptical, 0, 0))
-	{
-	printf ("Failed to initialize semaphore_hough_eliptical semaphore\n");
-	exit (-1);
-	}
-
-	pthread_attr_setschedparam(&attr_canny, &canny_param);
-	pthread_attr_setschedparam(&attr_hough, &hough_param);
-	pthread_attr_setschedparam(&attr_hough_eliptical, &hough_elip_param);
-	pthread_attr_setschedparam(&attr_main_sched, &main_param);
-
+       sem_init(&semaphore, 0, 0);
+       sem_init(&semaphore_storing, 0, 0);
+       sem_init(&jpeg_semaphore, 0, 0)
 	printf("\n\rCreating threads\r\n");
 	
 	/* Create threads */
-	if(pthread_create(&thread_canny, &attr_canny, canny_function, (void *)0) !=0){
+	if(pthread_create(&threads[1], &sched_attr[1], frame_thread, (void *)0) !=0)
+	{
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
 
-	if(pthread_create(&thread_hough, &attr_hough, hough_function, (void *)0) !=0){
+	if(pthread_create(&threads[2], &sched_attr[2], thread_write, (void *)0) !=0)
+	{
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
 	
-       if(pthread_create(&thread_hough_eliptical, &attr_hough_eliptical, hough_elip_function , (void *)0) !=0){
+       if(pthread_create(&threads[3], &sched_attr[3], thread_jpeg , (void *)0) !=0)
+	  {
 		perror("ERROR; pthread_create:");
 		exit(-1);
-	}
+	 }
 
-  printf("\n\rDone creating threads\r\n");
-  printf("\n\n\n\rHorizontal resolution:%d and Vertical resolution:%d\n\r",HRES,VRES);
-  /* Wait for threads to exit */
-  pthread_join(thread_canny,NULL);
-  pthread_join(thread_hough,NULL);
-  pthread_join(thread_hough_eliptical,NULL);
+	  printf("\n\rDone creating threads\r\n");
+	  /* Wait for threads to exit */
+	  pthread_join(frame_thread,NULL);
+	  pthread_join(thread_write,NULL);
+	  pthread_join(thread_jpeg,NULL);
 
-  cvReleaseCapture(&capture);
-  cvDestroyWindow("Capture Example");
-
-  var=sched_setscheduler(getpid(), SCHED_OTHER, &nrt_param);
-
-  printf("All done\n");
+	  prio=sched_setscheduler(getpid(), SCHED_OTHER, &nrt_param);
+  
+	  printf("All done\n");
+	  destroy_messagequeue();
+	  return 0;
 }
 
