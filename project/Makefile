@@ -14,7 +14,7 @@ build:	version4
 
 clean:
 	-rm -f *.o *.d *.jpg *.ppm
-	-rm -f version3
+	-rm -f version4
 
 version4:	version4.o	
 	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version4	version4.o	`pkg-config --libs opencv`	$(CPPLIBS)		
