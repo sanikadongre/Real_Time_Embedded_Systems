@@ -53,7 +53,7 @@ pthread_t thread_jpeg;
 pthread_attr_t attr_frame;
 pthread_attr_t attr_write;
 pthread_attr_t attr_jpeg;
-pthread_attr_t attr_main_sched;
+
 
 int max_priority, min_priority; //max and min priority
 double initial_time;
