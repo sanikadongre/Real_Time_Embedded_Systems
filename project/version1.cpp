@@ -46,14 +46,13 @@ sem_t semaphore, jpeg_semaphore, semaphore_storing, semaphore_fps;
 pthread_t frame_thread;
 pthread_t thread_write;
 pthread_t thread_jpeg;
-pthread_t thread_fps;
+
 
 /*pthread attribute structures*/
 
 pthread_attr_t attr_frame;
 pthread_attr_t attr_write;
 pthread_attr_t attr_jpeg;
-pthread_attr_t attr_fps;
 pthread_attr_t attr_main_sched;
 
 int max_priority, min_priority; //max and min priority
@@ -64,7 +63,6 @@ struct sched_param frame_param;
 struct sched_param write_param;
 struct sched_param jpeg_param;
 struct sched_param main_param;
-struct sched_param fps_param;
 struct sched_param nrt_param;
 
 
@@ -125,7 +123,9 @@ void *frame_function(void *threadid)
     if(f>0)
     {
       jitter_calc = run_time - old_time;
+      printf("The calculated jitter is: %0.8lf ms\n", jitter_calc);
      }
+     old_time = run_time;
      jitter_acc += jitter_calc; 
     /*release semaphore for next thread*/
     sem_post(&semaphore_storing);
@@ -179,7 +179,9 @@ void *write_function(void *threadid)
     if(f>0)
     {
       jitter_calc = run_time - old_time;
+      printf("The calculated jitter is %0.8lf ms\n", jitter_calc);
      }
+     old_time = run_time;
      jitter_acc += jitter_calc;  
     /*Release semaphore for next thread*/
     sem_post(&jpeg_semaphore);
@@ -238,21 +240,16 @@ void *jpeg_function(void *threadid)
     if(f>0)
     {
       jitter_calc = run_time - old_time;
+      printf("The calculated jitter is %0.8lf ms\n", jitter_calc);
     }
+     old_time = run_time;
      jitter_acc += jitter_calc; 
     /*Release semaphore for next thread*/
-    sem_post(&semaphore_fps); 
+    sem_post(&semaphore); 
   }
   jitter_avg = jitter_acc/frames_count;
   printf("The average jitter is: %0.8lf ms\n", jitter_avg);
   pthread_exit(NULL);
-}
- 
-void *fps_function(void *threadid)
-{
-  sem_wait(&semaphore_fps);
-  printf("framepersecondthread\n");
-  sem_post(&semaphore);
 }
 
 /* Print the current scheduling policy */
@@ -323,11 +320,6 @@ int main(int argc, char** argv)
 	pthread_attr_setschedpolicy(&attr_jpeg,SCHED_FIFO);
 	jpeg_param.sched_priority=max_priority-3;
         
-        pthread_attr_init(&attr_fps);
-	pthread_attr_setinheritsched(&attr_fps,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_fps,SCHED_FIFO);
-	fps_param.sched_priority=max_priority-4;
-
 	/* Set scheduling policy */
 	var=sched_getparam(getpid(), &nrt_param);
 	if (var)
@@ -377,16 +369,9 @@ int main(int argc, char** argv)
 	exit (-1);
 	}
 
-        if (sem_init (&semaphore_fps, 0, 0))
-	{
-	printf ("Failed to initialize semaphore_fps semaphore\n");
-	exit (-1);
-	}
-
 	pthread_attr_setschedparam(&attr_frame, &frame_param);
 	pthread_attr_setschedparam(&attr_write, &write_param);
 	pthread_attr_setschedparam(&attr_jpeg, &jpeg_param);
-        pthread_attr_setschedparam(&attr_fps, &fps_param);
 	pthread_attr_setschedparam(&attr_main_sched, &main_param);
 
 	printf("\n\rCreating threads\r\n");
@@ -406,10 +391,6 @@ int main(int argc, char** argv)
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
-       if(pthread_create(&thread_fps, &attr_fps, fps_function , (void *)0) !=0){
-		perror("ERROR; pthread_create:");
-		exit(-1);
-	}
 
   printf("\n\rDone creating threads\r\n");
   printf("\n\n\n\rHorizontal resolution:%d and Vertical resolution:%d\n\r",HRES,VRES);
@@ -417,7 +398,7 @@ int main(int argc, char** argv)
   pthread_join(frame_thread,NULL);
   pthread_join(thread_write,NULL);
   pthread_join(thread_jpeg,NULL);
-  pthread_join(thread_fps,NULL);
+  
 
   cvReleaseCapture(&capture);
   cvDestroyWindow("Capture Example");
