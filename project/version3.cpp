@@ -25,45 +25,33 @@ struct timespec time_left = {0,0};
 #define NSEC_PER_SEC (1000000000)
 #define frames_count 2000
 #define OK (0)
-
-
-
+#define threads_count 3
+#define max_priority sched_get_priority_max(SCHED_FIFO)
 
 /*Define semaphores*/
-sem_t semaphore, jpeg_semaphore, semaphore_storing, semaphore_fps;
+sem_t semaphore, jpeg_semaphore, semaphore_storing, semaphore_4;
 
 /*struct*/
   struct timespec deadline_frame = {0,20000000};
   struct timespec deadline_jpeg = {0,40000000};
   struct timespec deadline_write = {0, 30000000};
 
+  typedef struct
+  {
+    pthread_t thread;
+    pthread_attr_t attr;
+    uint16_t prio = max_priority - threads_count++;
+    struct sched_param params;
+  }threadParams;
+   threadParams threads_info[threads_count];
 
 
   double framerate;
   double value;
 
-/* Threads for each transform */
-pthread_t frame_thread;
-pthread_t thread_write;
-pthread_t thread_jpeg;
-
-
-/*pthread attribute structures*/
-
-pthread_attr_t attr_frame;
-pthread_attr_t attr_write;
-pthread_attr_t attr_jpeg;
-
-
-int max_priority, min_priority; //max and min priority
+int min_priority; //max and min priority
 double initial_time;
 /*Defining sched parameters*/
-
-struct sched_param frame_param;
-struct sched_param write_param;
-struct sched_param jpeg_param;
-
-
 // Transform display window
 char timg_window_name[] = "Edge Detector Transform";
 
@@ -243,13 +231,71 @@ void *jpeg_function(void *threadid)
      old_time = run_time;
      jitter_acc += jitter_calc; 
     /*Release semaphore for next thread*/
-    sem_post(&semaphore); 
+    sem_post(&semaphore_4); 
   }
   jitter_avg = jitter_acc/frames_count;
   printf("The average jitter is: %0.8lf ms\n", jitter_avg);
   pthread_exit(NULL);
 }
 
+void *thread_4(void *threadid)
+{
+	sem_wait(&semaphore_4);
+	printf("adding threads\n");
+	sem_post(&semaphore);
+}
+
+void simplify(threadParams  *ptr)
+{
+	pthread_attr_init(&(ptr->attr));
+	pthread_attr_setinheritsched(&(ptr->attr),PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setschedpolicy(&(ptr->attr),SCHED_FIFO);
+	ptr->params.sched_priority = ptr->prio;
+	// initialize the signalling semaphores
+	if (sem_init (&semaphore, 0, 1))
+	{
+	printf ("Failed to initialize semaphore semaphore\n");
+	exit (-1);
+	}
+
+	if (sem_init (&semaphore_storing, 0, 0))
+	{
+	printf ("Failed to initialize semaphore_storing semaphore\n");
+	exit (-1);
+	}
+
+	if (sem_init (&jpeg_semaphore, 0, 0))
+	{
+	printf ("Failed to initialize semaphore_jpeg semaphore\n");
+	exit (-1);
+	}
+	if (sem_init (&semaphore_4, 0, 0))
+	{
+	printf ("Failed to initialize semaphore_4 semaphore\n");
+	exit (-1);
+	pthread_attr_setschedparam(&(ptr->attr), &(ptr->params));
+	if(pthread_create(&(ptr->threads_info[0].thread), &(ptr->attr), frame_function, (void *)0) !=0)
+	{
+		perror("ERROR; pthread_create:");
+		exit(-1);
+	}
+	if(pthread_create(&(ptr->threads_info[1].thread), &(ptr->attr), write_function, (void *)0) !=0)
+	{
+		perror("ERROR; pthread_create:");
+		exit(-1);
+	}
+	if(pthread_create(&(ptr->threads_info[2].thread), &(ptr->attr), jpeg_function, (void *)0) !=0)
+	{
+		perror("ERROR; pthread_create:");
+		exit(-1);
+	}
+	if(pthread_create(&(ptr->threads_info[3].thread), &(ptr->attr), thread_4, (void *)0) !=0)
+	{
+		perror("ERROR; pthread_create:");
+		exit(-1);
+	}
+	
+}
 /* Print the current scheduling policy */
 /*The main function*/
 int main(int argc, char** argv)
@@ -269,73 +315,21 @@ int main(int argc, char** argv)
 	/* Set the resolution */
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, HRES);
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, VRES);
-
-	max_priority = sched_get_priority_max(SCHED_FIFO);
+        
 	min_priority = sched_get_priority_min(SCHED_FIFO);
-
-	pthread_attr_init(&attr_frame);
-	pthread_attr_setinheritsched(&attr_frame,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_frame,SCHED_FIFO);
-	frame_param.sched_priority=max_priority;
-
-	pthread_attr_init(&attr_write);
-	pthread_attr_setinheritsched(&attr_write,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_write,SCHED_FIFO);
-	write_param.sched_priority=max_priority-1;
-
-	pthread_attr_init(&attr_jpeg);
-	pthread_attr_setinheritsched(&attr_jpeg,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_jpeg,SCHED_FIFO);
-	jpeg_param.sched_priority=max_priority-2;
-   
-	// initialize the signalling semaphores
-	if (sem_init (&semaphore, 0, 1))
-	{
-	printf ("Failed to initialize semaphore semaphore\n");
-	exit (-1);
-	}
-
-	if (sem_init (&semaphore_storing, 0, 0))
-	{
-	printf ("Failed to initialize semaphore_storing semaphore\n");
-	exit (-1);
-	}
-
-	if (sem_init (&jpeg_semaphore, 0, 0))
-	{
-	printf ("Failed to initialize semaphore_jpeg semaphore\n");
-	exit (-1);
-	}
-
-	pthread_attr_setschedparam(&attr_frame, &frame_param);
-	pthread_attr_setschedparam(&attr_write, &write_param);
-	pthread_attr_setschedparam(&attr_jpeg, &jpeg_param);
 	printf("\n\rCreating threads\r\n");
-	
 	/* Create threads */
-	if(pthread_create(&frame_thread, &attr_frame, frame_function, (void *)0) !=0){
-		perror("ERROR; pthread_create:");
-		exit(-1);
+	for(int f=0; f<threads_count;f++)
+	{
+            simplify(&threads_info[f]);	
 	}
-
-	if(pthread_create(&thread_write, &attr_write, write_function, (void *)0) !=0){
-		perror("ERROR; pthread_create:");
-		exit(-1);
-	}
-	
-       if(pthread_create(&thread_jpeg, &attr_jpeg, jpeg_function , (void *)0) !=0){
-		perror("ERROR; pthread_create:");
-		exit(-1);
-	}
-
   printf("\n\rDone creating threads\r\n");
   printf("\n\n\n\rHorizontal resolution:%d and Vertical resolution:%d\n\r",HRES,VRES);
   /* Wait for threads to exit */
   pthread_join(frame_thread,NULL);
   pthread_join(thread_write,NULL);
   pthread_join(thread_jpeg,NULL);
-  
-
+  pthread_join(thread_4,NULL);
   cvReleaseCapture(&capture);
   cvDestroyWindow("Capture Example");
   printf("All done\n");
