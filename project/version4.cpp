@@ -6,17 +6,7 @@
 #include <sys/param.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <string.h>
-#include <stdbool.h>
-#include <sstream>
-#include <fstream>
-#include <sys/msg.h>
-#include <sys/ipc.h>
-#include <opencv/highgui.h>
-#include <opencv2/opencv.hpp>
-//#include <opencv2/videoio.hpp>
 
-using namespace cv;
 using namespace std;
 
 #define HRES 640
@@ -43,8 +33,6 @@ double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
 
 double initial_time;
-int device =0;
-VideoCapture cap(1);
 
 double calc_ms(void)
 {
@@ -115,18 +103,14 @@ void threads_init(void)
 
 void *frame_function(void* ptr)
 {
-	uint8_t thread_id=0;
-        Mat ppm_frame;
-        system("uname -a > output_file.out");	
+	uint8_t thread_id=0;	
  	while(counter_arr[thread_id] < frames_count)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
-		cap.open(device);
-                cap >> ppm_frame;
-                cap.release();
+		//Do code here
 	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[thread_id+1]);
