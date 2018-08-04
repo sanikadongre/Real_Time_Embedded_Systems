@@ -1,4 +1,4 @@
-INCLUDES=	-I/usr/include
+INCLUDES=	-I/usr/local/opencv/include
 
 CC=	g++
 
@@ -6,15 +6,15 @@ CFLAGS=	-O0	-g	-std=c++11
 
 CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video -lpthread -lrt 
  
-CPPFILES= jitter.cpp
+CPPFILES= version1.cpp
 
 CPPOBJS= ${CPPFILES:.cpp=.o}
 
-build:	jitter
+build:	version1
 
 clean:
-	-rm -f *.o *.d
-	-rm -f jitter
+	-rm -f *.o *.d *.jpg *.ppm
+	-rm -f version1
 
-jitter:	jitter.o	
-	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	jitter	jitter.o	`pkg-config --libs opencv`	$(CPPLIBS)		
+version1:	version1.o	
+	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version1	version1.o	`pkg-config --libs opencv`	$(CPPLIBS)		

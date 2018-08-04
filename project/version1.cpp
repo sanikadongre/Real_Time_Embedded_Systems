@@ -1,8 +1,3 @@
-/****************************************************************************************************
-* Author: Sanika Dongre
-* Date: 07/20/18
-* Reference:Sam Siewart: http://mercury.pr.erau.edu/~siewerts/cs415/code/computer_vision_cv3_tested/       
-****************************************************************************************************/
 
 #include <unistd.h>
 #include <stdio.h>
@@ -20,12 +15,12 @@
 using namespace cv;
 using namespace std;
 
-struct timespec deadline_canny = {0,20000000};
-struct timespec deadline_hough = {0,30000000};
-struct timespec deadline_hough_eliptical= {0,40000000};
+struct timespec time_end = {0,0};
+struct timespec time_left = {0,0};
 
-#define HRES 160
-#define VRES 120
+
+#define HRES 640
+#define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
 #define OK (0)
@@ -34,10 +29,12 @@ struct timespec deadline_hough_eliptical= {0,40000000};
 
 
 /*Define semaphores*/
-sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
+sem_t semaphore, jpeg_semaphore, semaphore_storing;
 
 /*struct*/
-
+  struct timespec deadline_frame = {0,20000000};
+  struct timespec deadline_jpeg = {0,40000000};
+  struct timespec deadline_write = {0, 30000000};
   struct timespec initialsec;
   struct timespec endsec;
   struct timespec deltatime;
@@ -48,23 +45,23 @@ sem_t semaphore_canny, semaphore_hough, semaphore_hough_eliptical;
   double value;
 
 /* Threads for each transform */
-pthread_t thread_canny;
-pthread_t thread_hough_eliptical;
-pthread_t thread_hough;
+pthread_t frame_thread;
+pthread_t thread_write;
+pthread_t thread_jpeg;
 
 /*pthread attribute structures*/
-pthread_attr_t attr_canny;
-pthread_attr_t attr_hough;
-pthread_attr_t attr_hough_eliptical;
+pthread_attr_t attr_frame;
+pthread_attr_t attr_write;
+pthread_attr_t attr_jpeg;
 pthread_attr_t attr_main_sched;
 
 int max_priority, min_priority; //max and min priority
 
 /*Defining sched parameters*/
 
-struct sched_param canny_param;
-struct sched_param hough_elip_param;
-struct sched_param hough_param;
+struct sched_param frame_param;
+struct sched_param write_param;
+struct sched_param jpeg_param;
 struct sched_param main_param;
 struct sched_param nrt_param;
 
@@ -123,41 +120,19 @@ int delta_t(struct timespec *stop, struct timespec *start, struct timespec *delt
   return(OK);
 }
 
-
-/* Function to perform Canny transform based on threshold */
-void CannyThreshold(int, void*)
+void *frame_function(void *threadid)
 {
-    Mat mat_frame(frameCanny);
-
-    cvtColor(mat_frame, timg_gray, CV_RGB2GRAY);
-
-    // Reduce noise with a kernel 3x3
-    blur( timg_gray, canny_frame, Size(3,3) );
-
-    // Canny detector
-    Canny( canny_frame, canny_frame, lowThreshold, lowThreshold*ratio, kernel_size );
-
-    // Using Canny's output as a mask, we display our result
-    timg_grad = Scalar::all(0);
-
-    mat_frame.copyTo( timg_grad, canny_frame);
-
-    /*Open window to display result*/
-    //imshow( "Canny Tranasform", timg_grad );
-
-}
-
-/* Thread to perform canny transform*/
-void *canny_function(void *threadid)
-{
-  long val = 0;
+  long val;
+  int f= 0;
+  double end_time = 0, run_time = 0,old_time = 0, jitter_acc = 0, jitter_avg = 0;
+  Mat frame;
   while(1){
     /*Hold semaphore*/
-    sem_wait(&semaphore_canny);
+    sem_wait(&semaphore);
 
     /*Get start time*/
     clock_gettime(CLOCK_REALTIME, &initialsec);
-    printf("Resolution is 160x120\n");
+    printf("Resolution is 640x480\n");
     printf("\n\rTimestamp for the canny transform when it starts: Seconds:%ld and Nanoseconds:%ld",initialsec.tv_sec, initialsec.tv_nsec);
     
     /*Capture and store frame*/
@@ -165,8 +140,6 @@ void *canny_function(void *threadid)
 
     if(!frameCanny)
       return(0);
-
-    CannyThreshold(0, 0);
 
     char q = cvWaitKey(33);
     if( q == 'q' )
@@ -181,23 +154,24 @@ void *canny_function(void *threadid)
     printf("\n\rThe time difference between start and stop is Seconds:%ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
     framerate = NSEC_PER_SEC / deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate); 
-    delta_t(&deadline_canny, &deltatime, &jitter);
-    printf("\n\rCanny transform when Jitter is as shown in seconds %ld nanoseconds\n\r", jitter);
+    delta_t(&deadline_frame, &deltatime, &jitter);
+    printf("\n\rCanny transform when Jitter is as shown is %ld nanoseconds\n\r", jitter.tv_nsec);
 
     /*release semaphore for next thread*/
-    sem_post(&semaphore_hough);
+    sem_post(&semaphore_storing);
   }
   pthread_exit(NULL);
 }
 
 /* Thread to perform hough transform*/
-void *hough_function(void *threadid)
+void *write_function(void *threadid)
 {
   long val;
+  int f = 0;
   while(1){
 
     /*Hold semaphore*/
-    sem_wait(&semaphore_hough);
+    sem_wait(&semaphore_storing);
 
     Mat gray, canny_frame, cdst;
     vector<Vec4i> lines;
@@ -245,22 +219,22 @@ void *hough_function(void *threadid)
     /*frame rate per seconds calculation*/
     framerate = NSEC_PER_SEC/deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f", framerate);
-    delta_t(&deadline_hough, &deltatime, &jitter);
+    delta_t(&deadline_write, &deltatime, &jitter);
      /*calculating jitter*/
-    printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter);
+    printf("\n\rHough Jitter obtained is %ld nanoseconds\n\r", jitter.tv_nsec);
     /*Release semaphore for next thread*/
-    sem_post(&semaphore_hough_eliptical);
+    sem_post(&jpeg_semaphore);
   }
     pthread_exit(NULL);
 }
 
 /* Thread to perform hough eliptical transform*/
-void *hough_elip_function(void *threadid)
+void *jpeg_function(void *threadid)
 {
   long val;
   while(1){
     /*Hold semaphhore*/
-    sem_wait(&semaphore_hough_eliptical);
+    sem_wait(&jpeg_semaphore);
 
     Mat gray;
     vector<Vec3f> circles;
@@ -312,21 +286,19 @@ void *hough_elip_function(void *threadid)
 
     printf("circles.size = %d\n", circles.size());
     printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
-<<<<<<< HEAD
     framerate = NSEC_PER_SEC/ deltatime.tv_nsec;
     printf("\n\rThe frame rate is %f\n", framerate); 
     /*Calculate jitter*/	  
-    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);
-    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter);
-=======
-    framerate = NSEC_PER_SEC/ deltatime.tv_nsec;                     /*Frame rate calculation*/
-    printf("\n\rThe frame rate is %f", framerate);                  
-    delta_t(&deadline_hough_eliptical, &deltatime, &jitter);        /*Calculating jitter*/
-    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter); /*jitter print*/
->>>>>>> c4b53a73603867c34679981ed52a15f05b8afb10
+    delta_t(&endsec, &initialsec, &deltatime);
+    printf("\n\rThe time difference between start and stop is Seconds: %ld and Nanoseconds:%ld", deltatime.tv_sec, deltatime.tv_nsec);
+    /*frame rate per seconds calculation*/
+    framerate = NSEC_PER_SEC/deltatime.tv_nsec;
+    printf("\n\rThe frame rate is %f", framerate);                /*Frame rate calculation*/            
+    delta_t(&deadline_jpeg, &deltatime, &jitter);        /*Calculating jitter*/
+    printf("Hough eliptical Jitter obtained is %ld ms\n\r", jitter.tv_nsec); /*jitter print*/
 
     /*Release semaphore for next thread*/
-    sem_post(&semaphore_canny); 
+    sem_post(&semaphore); 
   }
   pthread_exit(NULL);
 }
@@ -384,20 +356,21 @@ int main(int argc, char** argv)
 	pthread_attr_setschedpolicy(&attr_main_sched,SCHED_FIFO);    /*sched_fifo attributes*/
 	main_param.sched_priority=max_priority;
 
-	pthread_attr_init(&attr_canny);
-	pthread_attr_setinheritsched(&attr_canny,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_canny,SCHED_FIFO);
-	canny_param.sched_priority=max_priority-1;
+	pthread_attr_init(&attr_frame);
+	pthread_attr_setinheritsched(&attr_frame,PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setschedpolicy(&attr_frame,SCHED_FIFO);
+	frame_param.sched_priority=max_priority-1;
 
-	pthread_attr_init(&attr_hough_eliptical);
-	pthread_attr_setinheritsched(&attr_hough,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_hough,SCHED_FIFO);
-	hough_param.sched_priority=max_priority-2;
+	pthread_attr_init(&attr_write);
+	pthread_attr_setinheritsched(&attr_write,PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setschedpolicy(&attr_write,SCHED_FIFO);
+	write_param.sched_priority=max_priority-2;
 
-	pthread_attr_init(&attr_hough);
-	pthread_attr_setinheritsched(&attr_hough_eliptical,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_hough_eliptical,SCHED_FIFO);
-	hough_elip_param.sched_priority=max_priority-3;
+	pthread_attr_init(&attr_jpeg);
+	pthread_attr_setinheritsched(&attr_jpeg,PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setschedpolicy(&attr_jpeg,SCHED_FIFO);
+	jpeg_param.sched_priority=max_priority-3;
+        
 
 	/* Set scheduling policy */
 	var=sched_getparam(getpid(), &nrt_param);
@@ -419,7 +392,7 @@ int main(int argc, char** argv)
 	printf("After adjustments to scheduling policy:\n");
 	print_scheduler();
 
-	pthread_attr_getscope(&attr_canny, &scope);
+	pthread_attr_getscope(&attr_frame, &scope);
 
 	if(scope == PTHREAD_SCOPE_SYSTEM)
 	  printf("PTHREAD SCOPE SYSTEM\n");
@@ -430,43 +403,43 @@ int main(int argc, char** argv)
 
 
 	// initialize the signalling semaphores
-	if (sem_init (&semaphore_canny, 0, 1))
+	if (sem_init (&semaphore, 0, 1))
 	{
-	printf ("Failed to initialize semaphore_canny semaphore\n");
+	printf ("Failed to initialize semaphore semaphore\n");
 	exit (-1);
 	}
 
-	if (sem_init (&semaphore_hough, 0, 0))
+	if (sem_init (&semaphore_storing, 0, 0))
 	{
-	printf ("Failed to initialize semaphore_hough semaphore\n");
+	printf ("Failed to initialize semaphore_storing semaphore\n");
 	exit (-1);
 	}
 
-	if (sem_init (&semaphore_hough_eliptical, 0, 0))
+	if (sem_init (&jpeg_semaphore, 0, 0))
 	{
-	printf ("Failed to initialize semaphore_hough_eliptical semaphore\n");
+	printf ("Failed to initialize semaphore_jpeg semaphore\n");
 	exit (-1);
 	}
 
-	pthread_attr_setschedparam(&attr_canny, &canny_param);
-	pthread_attr_setschedparam(&attr_hough, &hough_param);
-	pthread_attr_setschedparam(&attr_hough_eliptical, &hough_elip_param);
+	pthread_attr_setschedparam(&attr_frame, &frame_param);
+	pthread_attr_setschedparam(&attr_write, &write_param);
+	pthread_attr_setschedparam(&attr_jpeg, &jpeg_param);
 	pthread_attr_setschedparam(&attr_main_sched, &main_param);
 
 	printf("\n\rCreating threads\r\n");
 	
 	/* Create threads */
-	if(pthread_create(&thread_canny, &attr_canny, canny_function, (void *)0) !=0){
+	if(pthread_create(&frame_thread, &attr_frame, frame_function, (void *)0) !=0){
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
 
-	if(pthread_create(&thread_hough, &attr_hough, hough_function, (void *)0) !=0){
+	if(pthread_create(&thread_write, &attr_write, write_function, (void *)0) !=0){
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
 	
-       if(pthread_create(&thread_hough_eliptical, &attr_hough_eliptical, hough_elip_function , (void *)0) !=0){
+       if(pthread_create(&thread_jpeg, &attr_jpeg, jpeg_function , (void *)0) !=0){
 		perror("ERROR; pthread_create:");
 		exit(-1);
 	}
@@ -474,9 +447,9 @@ int main(int argc, char** argv)
   printf("\n\rDone creating threads\r\n");
   printf("\n\n\n\rHorizontal resolution:%d and Vertical resolution:%d\n\r",HRES,VRES);
   /* Wait for threads to exit */
-  pthread_join(thread_canny,NULL);
-  pthread_join(thread_hough,NULL);
-  pthread_join(thread_hough_eliptical,NULL);
+  pthread_join(frame_thread,NULL);
+  pthread_join(thread_write,NULL);
+  pthread_join(thread_jpeg,NULL);
 
   cvReleaseCapture(&capture);
   cvDestroyWindow("Capture Example");

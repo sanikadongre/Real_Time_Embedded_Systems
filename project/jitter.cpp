@@ -77,14 +77,16 @@ void time_func_delay(long int time_sec, long int time_nsec)
     {
      time_end.tv_sec = time_left.tv_sec;
     time_end.tv_nsec = time_left.tv_nsec;
-  }
+     }
 	  else if(t>0)
 	  {
 		  perror("Sequencer nanosleep");
 		  exit(-1);
 	  }
+    }
   while ((time_left.tv_sec > 0) || (time_left.tv_nsec > 0));
 }
+
 double time_func_msec(void)
 {
   struct timespec time_sample = {0, 0};
@@ -264,18 +266,18 @@ void *thread_jpeg(void *threadd)
     printf("\nAverage compress jitter for images is: %0.8lf miliseconds\n\n", jitter_avg);
     pthread_exit(NULL);
 }
-void *adder(void *threadd)
-{
-  int f = 0;
-  do
-  {
-      sem_post(&semaphore);
-      precisionDelay(1, 0);
-      f++;
-   }
-   while (f<frames_count);
-   pthread_exit(NULL);
-}
+	void *adder(void *threadd)
+	{
+	  int f = 0;
+	  do
+	  {
+	      sem_post(&semaphore);
+	      
+	      f++;
+	   }
+	   while (f<frames_count);
+	   pthread_exit(NULL);
+           }
 
 /*The main function*/
 int main(int argc, char *argv[])
@@ -312,36 +314,32 @@ int main(int argc, char *argv[])
     {
 	    perror("main_param");
     }
-    CPU_ZERO(&cpuset);
-    CPU_SET(1, &cpuset);
-    for(f=0; f< threads_count; f+++)
+   
+    for(f=0; f< threads_count; f++)
     {
     pthread_attr_init(&sched_attr[f]);
     }
-    pthread_attr_setaffinity_np(&sched_attr[0], sizeof(cpu_set_t), &cpuset);
+   // pthread_attr_setaffinity_np(&sched_attr[0], sizeof(cpu_set_t), &cpuset);
     param[0].sched_priority=max_priority-1;
     pthread_attr_setschedparam(&sched_attr[0], &param[0]);
     pthread_attr_setschedparam(&attr_main, &main_param);
     pthread_create(&threads[0], &sched_attr[0], adder, (void*) (NULL));
-    // setting core affinity
-    CPU_ZERO(&cpuset);
-    CPU_SET(2, &cpuset1);
 
     for(f=1;f<threads_count-1;f++)
     {
         pthread_attr_init(&sched_attr[f]);
 	pthread_attr_setinheritsched(&sched_attr[f],PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setschedpolicy(&sched_attr[f],SCHED_FIFO);    /*sched_fifo attributes*/
-        thread_attr_setaffinity_np(&sched_attr[f], sizeof(cpu_set_t), &cpuset1);
+        //thread_attr_setaffinity_np(&sched_attr[f], sizeof(cpu_set_t), &cpuset1);
         param[f].sched_priority= max_priority-f-1;
         pthread_attr_setschedparam(&sched_attr[f], &param[f]);
 	pthread_attr_setschedparam(&attr_main, &main_param);
     }
    
-	/* Set scheduling policy */
+	
        sem_init(&semaphore, 0, 0);
        sem_init(&semaphore_storing, 0, 0);
-       sem_init(&jpeg_semaphore, 0, 0)
+       sem_init(&jpeg_semaphore, 0, 0);
 	printf("\n\rCreating threads\r\n");
 	
 	/* Create threads */
@@ -364,15 +362,14 @@ int main(int argc, char *argv[])
 	 }
 
 	  printf("\n\rDone creating threads\r\n");
-	  /* Wait for threads to exit */
-	  pthread_join(frame_thread,NULL);
-	  pthread_join(thread_write,NULL);
-	  pthread_join(thread_jpeg,NULL);
+	  pthread_join(threads[1],NULL);
+	  pthread_join(threads[2],NULL);
+	  pthread_join(threads[3],NULL);
 
 	  prio=sched_setscheduler(getpid(), SCHED_OTHER, &nrt_param);
   
 	  printf("All done\n");
-	  destroy_messagequeue();
+	  destroy_mqueue();
 	  return 0;
 }
 
