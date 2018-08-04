@@ -62,8 +62,6 @@ double initial_time;
 struct sched_param frame_param;
 struct sched_param write_param;
 struct sched_param jpeg_param;
-struct sched_param main_param;
-struct sched_param nrt_param;
 
 
 // Transform display window
@@ -253,27 +251,6 @@ void *jpeg_function(void *threadid)
 }
 
 /* Print the current scheduling policy */
-void print_scheduler(void)
-{
-   int schedType;
-
-   schedType = sched_getscheduler(getpid());
-
-   switch(schedType)
-   {
-     case SCHED_FIFO:
-	   printf("Pthread Policy is SCHED_FIFO\n");
-	   break;
-     case SCHED_OTHER:
-	   printf("Pthread Policy is SCHED_OTHER\n");
-       break;
-     case SCHED_RR:
-	   printf("Pthread Policy is SCHED_RR\n");
-	   break;
-     default:
-       printf("Pthread Policy is UNKNOWN\n");
-   }
-}
 /*The main function*/
 int main(int argc, char** argv)
 {
@@ -293,63 +270,24 @@ int main(int argc, char** argv)
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, HRES);
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, VRES);
 
-	printf("Before adjustments to scheduling policy:\n");
-	print_scheduler();
-
 	max_priority = sched_get_priority_max(SCHED_FIFO);
 	min_priority = sched_get_priority_min(SCHED_FIFO);
-
-	/*Initialise threads and attributes*/
-	pthread_attr_init(&attr_main_sched);
-	pthread_attr_setinheritsched(&attr_main_sched,PTHREAD_EXPLICIT_SCHED);
-	pthread_attr_setschedpolicy(&attr_main_sched,SCHED_FIFO);    /*sched_fifo attributes*/
-	main_param.sched_priority=max_priority;
 
 	pthread_attr_init(&attr_frame);
 	pthread_attr_setinheritsched(&attr_frame,PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setschedpolicy(&attr_frame,SCHED_FIFO);
-	frame_param.sched_priority=max_priority-1;
+	frame_param.sched_priority=max_priority;
 
 	pthread_attr_init(&attr_write);
 	pthread_attr_setinheritsched(&attr_write,PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setschedpolicy(&attr_write,SCHED_FIFO);
-	write_param.sched_priority=max_priority-2;
+	write_param.sched_priority=max_priority-1;
 
 	pthread_attr_init(&attr_jpeg);
 	pthread_attr_setinheritsched(&attr_jpeg,PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setschedpolicy(&attr_jpeg,SCHED_FIFO);
-	jpeg_param.sched_priority=max_priority-3;
-        
-	/* Set scheduling policy */
-	var=sched_getparam(getpid(), &nrt_param);
-	if (var)
-	{
-		printf("ERROR; sched_setscheduler var is %d\n", var);
-		perror(NULL);
-		exit(-1);
-	}
-
-	var=sched_setscheduler(getpid(),SCHED_FIFO,&main_param);
-	if(var)
-	{
-		printf("ERROR; main sched_setscheduler var is %d\n",var);
-		perror(NULL);
-		exit(-1);
-	}
-
-	printf("After adjustments to scheduling policy:\n");
-	print_scheduler();
-
-	pthread_attr_getscope(&attr_frame, &scope);
-
-	if(scope == PTHREAD_SCOPE_SYSTEM)
-	  printf("PTHREAD SCOPE SYSTEM\n");
-	else if (scope == PTHREAD_SCOPE_PROCESS)
-	  printf("PTHREAD SCOPE PROCESS\n");  
-	else
-	  printf("PTHREAD SCOPE UNKNOWN\n");
-
-
+	jpeg_param.sched_priority=max_priority-2;
+   
 	// initialize the signalling semaphores
 	if (sem_init (&semaphore, 0, 1))
 	{
@@ -372,8 +310,6 @@ int main(int argc, char** argv)
 	pthread_attr_setschedparam(&attr_frame, &frame_param);
 	pthread_attr_setschedparam(&attr_write, &write_param);
 	pthread_attr_setschedparam(&attr_jpeg, &jpeg_param);
-	pthread_attr_setschedparam(&attr_main_sched, &main_param);
-
 	printf("\n\rCreating threads\r\n");
 	
 	/* Create threads */
@@ -402,8 +338,5 @@ int main(int argc, char** argv)
 
   cvReleaseCapture(&capture);
   cvDestroyWindow("Capture Example");
-
-  var=sched_setscheduler(getpid(), SCHED_OTHER, &nrt_param);
-
   printf("All done\n");
 }
