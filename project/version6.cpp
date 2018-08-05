@@ -6,6 +6,10 @@
 #include <sys/param.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <syslog.h>
+#include <sys/time.h>
+#include <stdbool.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -20,6 +24,7 @@ using namespace std;
 double framerate;
 double value;
 
+
 sem_t semaphore_arr[threads_count];
 pthread_t thread_arr[threads_count];
 pthread_attr_t attr_arr[threads_count];
@@ -32,7 +37,14 @@ double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
 
+typedef struct
+{
+	int threadIdx;
+	unsigned long long sequencePeriods;
+}threadParams_t;
+
 double initial_time;
+struct timeval start_time_val;
 
 double calc_ms(void)
 {
@@ -70,15 +82,22 @@ void jitter_final_print(uint8_t thread_id)
 
 void threads_init(void)
 {
-	uint8_t i=0,max_priority=20;
-	//max_priority = sched_get_priority_max(SCHED_FIFO);
+	uint8_t i=0,j=0;
+	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO);
 	printf("\nCreating Threads");
 	for(i=0;i<threads_count;i++)
 	{
 		pthread_attr_init(&attr_arr[i]);
 		pthread_attr_setinheritsched(&attr_arr[i],PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
-		param_arr[i].sched_priority=max_priority-i;	
+                for(j=0; j< ((threads_count-1)/2); j++)
+		{
+			param_arr[j].sched_priority=max_priority-i;
+                }
+                      param_arr[4].sched_priority = max_priority-3;
+                      param_arr[5].sched_priority = max_priority -2;
+                      param_arr[6].sched_priority = max_priority-3;
+		      param_arr[7].sched_priority = max_priority-2;	
 		if (sem_init (&semaphore_arr[i], 0, 0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread"<<i;
@@ -94,6 +113,7 @@ void threads_init(void)
 		cout<<"\nthread "<<i+0<<" created";
 	}
 	sem_post(&semaphore_arr[0]);
+        //threadParams[0].sequencePeriods = 900;
 	cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
 	{
@@ -156,16 +176,82 @@ void *jpeg_function(void *threadid)
 	pthread_exit(NULL);
 }
 
-void *thread_4(void *threadid)
+void *sequencer_function(void *threadp)
 {
   uint8_t thread_id=3;	
+  int abortTest = FALSE;
+  int abortS0 = FALSE, abortS1 = FALSE, abortS2 = FALSE,
+  abortS3 = FALSE, abortS4 = FALSE, abortS5 = FALSE, abortS6 = FALSE;	
+  struct timeval current_time_val;
+  struct timespec delay_time = {0,33333333};
+  struct timespec remaining_time;
+  double current_time;
+  double residual;
+  int rc, delay_cnt=0;
+  unsigned long long seqCnt=0;
+  threadParams_t* threadParams = (threadParams_t *)threadp;
+  gettimeofday(&current_time_val, (struct timezone *)0));
+  printf("Sequencer thread @ sec=%d, msec=%d\n", (int)(current_time_val.tv_sec-start_time_val.tv_sec), (int)current_time_val.tv_usec/1000000);
  	while(counter_arr[thread_id] < frames_count)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
-		//Do code here
+		do
+		{
+			delay_cnt =0;
+			residual=0.0;
+			//gettimeofday(&current_time_val, (struct timezone *)0);
+			do
+ 			{
+			  rc= nanosleep(&delay_time, &remaining_time);
+			  if(rc== EINTR)
+				{
+				   residual = remaining_time.tv_sec + ((double) remaining_time.tv_nsec / 1000000000);
+				   delay_cnt++;
+                                 }
+                          else if(rc < 0)
+				{
+					perror("Sequencer nanosleep");
+					exit(-1);
+                                 }
+			} while((residual > 0.0) && (delay_cnt <100));
+                        seqCnt++;
+			gettimeofday(&current_time_val, ((struct timezone *)0);
+			if(delay_cnt >1) printf("Sequencer looping delay %d\n", delay_cnt);
+			if((seqCnt % 10) == 0)
+			sem_post(&semaphore_arr[0]);
+			if((seqCnt % 30) == 0)
+			sem_post(&semaphore_arr[1]);
+			if((seqCnt % 60) == 0)
+			sem_post(&semaphore_arr[2]);
+			if((seqCnt % 30)== 0)
+			sem_post(&semaphore_arr[3]);
+			if((seqCnt % 60) ==0)
+			sem_post(&semaphore_arr[4]);
+			if((seqCnt % 30) == 0)
+			sem_post(&semaphore_arr[5]);
+			if((seqCnt % 300) == 0)
+			sem_post(&semaphore_arr[6]);
+			//gettimeofday(&current_time_val, (struct timezone *)0);
+			} while(!abortTest && (seqCnt < threadParams -> sequencePeriods));
+			sem_post(&semaphore_arr[0]);
+			sem_post(&semaphore_arr[1]);
+			sem_post(&semaphore_arr[2]);
+			sem_post(&semaphore_arr[3]);
+			sem_post(&semaphore_arr[4]);
+			sem_post(&semaphore_arr[5]);
+			sem_post(&semaphore_arr[6]);
+
+		        abortS0 = TRUE;
+                        abortS1 = TRUE;
+			abortS2 = TRUE;
+                        abortS3 = TRUE;
+			abortS4 = TRUE;
+                        abortS5 = TRUE;
+			abortS6 = TRUE;
+	
 	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[thread_id+1]);
@@ -230,10 +316,11 @@ void *thread_7(void *threadid)
 /*The main function*/
 int main(int argc, char** argv)
 {
+	struct timeval current_time_val;
   	func_arr[0] = frame_function;
   	func_arr[1] = write_function;
   	func_arr[2] = jpeg_function;
-  	func_arr[3] = thread_4;
+  	func_arr[3] = sequencer_function;
   	func_arr[4] = thread_5;
 	func_arr[5] = thread_6;
 	func_arr[6] = thread_7;
