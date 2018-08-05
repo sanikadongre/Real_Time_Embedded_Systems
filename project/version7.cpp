@@ -6,6 +6,7 @@
 #include <sys/param.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -31,6 +32,7 @@ double difference_arr[threads_count] = {0,0,0,0,0,0,0};
 double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
+struct timeval start_time_val;           
 
 double initial_time;
 
