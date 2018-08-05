@@ -15,6 +15,8 @@
 #include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
 //#include <opencv2/videoio.hpp>
+#include <mqueue.h>
+#include <iomanip>
 
 using namespace cv;
 using namespace std;
@@ -26,6 +28,10 @@ using namespace std;
 #define frames_count 10
 #define threads_count 7
 #define OK (0)
+
+#define mq_ppm "/ppm_writer_mq"
+#define mq_jpg "/jpg_writer_mq"
+#define ERROR -1
 
 double framerate;
 double value;
@@ -45,6 +51,10 @@ uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
 double initial_time;
 int device =0;
 VideoCapture cap(1);
+static mqd_t frame_mqueue;
+static mqd_t jpg_mqueue;
+struct mq_attr attr_frame;
+struct mq_attr attr_jpg;
 
 double calc_ms(void)
 {
@@ -112,11 +122,38 @@ void threads_init(void)
   		pthread_join(thread_arr[i],NULL);
 	}
 }
+ 
+void generate_mqueue(void)
+{
+	attr_frame.mq_maxmsg = frames_count;
+	attr_frame.mq_msgsize = sizeof(char *);
+	attr_frame.mq_flags = 0;
+        frame_mqueue= mq_open(mq_ppm, O_CREAT|O_RDWR, 0644, &attr_frame);
+        if(frame_mqueue == (mqd_t)ERROR)
+        perror("mq_open");
+        attr_jpg.mq_maxmsg = frames_count;
+	attr_jpg.mq_msgsize = sizeof(char *);
+	attr_jpg.mq_flags = 0;
+        jpg_mqueue= mq_open(mq_jpg, O_CREAT|O_RDWR, 0644, &attr_jpg);
+        if(jpg_mqueue == (mqd_t)ERROR)
+        perror("mq_open");
+}
+
+void destroy_mqueue(void)
+{
+	mq_close(frame_mqueue);
+	mq_close(jpg_mqueue);
+	mq_unlink(mq_ppm);
+	mq_unlink(mq_jpg);
+}	
 
 void *frame_function(void* ptr)
 {
 	uint8_t thread_id=0;
         Mat ppm_frame;
+        char *ptr_frame;
+        char buffer[sizeof(char *)];
+        ptr_frame = (char*) malloc(sizeof(ppm_frame.data));
         system("uname -a > output_file.out");	
  	while(counter_arr[thread_id] < frames_count)
   	{
@@ -127,7 +164,21 @@ void *frame_function(void* ptr)
 		cap.open(device);
                 cap >> ppm_frame;
                 cap.release();
-	
+		ptr_frame = (char*) ppm_frame.data;
+                memcpy(buffer, &ptr_frame, sizeof(char*));
+		if(ptr_frame==NULL)
+                {
+			printf("Null pointer\n");
+			break;
+                }
+ 		//if(mq_send(frame_mqueue, buffer, attr_frame.mq_msgsize, 30) == ERROR)
+		//{
+			//perror("mq_send error");
+		//}
+		//if(mq_send(jpg_mqueue, buffer, attr_jpg.mq_msgsize, 30) == ERROR)
+		//{
+		//	perror("mq_send error");
+		//}
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[thread_id+1]);
   	}
@@ -138,16 +189,48 @@ void *frame_function(void* ptr)
 void *write_function(void *ptr)
 {
   	uint8_t thread_id=1;	
+	Mat ppm_frame;
+	unsigned int prio;
+	char* ptr_frame;
+	char buffer[sizeof(char *)];
+	std::ostringstream name;
+	std::vector<int> compression_params;
+	compression_params.push_back(CV_IMWRITE_PXM_BINARY);
+	compression_params.push_back(1);
  	while(counter_arr[thread_id] < frames_count)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
-		//Do code here
-	
+		/*if(mq_receive(frame_mqueue, buffer, attr_frame.mq_msgsize, &prio) == ERROR)
+		{
+			perror("mq_receive error");
+		}
+		else
+		{
+			memcpy(&ptr_frame, buffer, sizeof(char *));
+			ppm_frame = Mat(480,640, CV_8UC3, ptr_frame);
+		}*/
+		imwrite(name.str(),ppm_frame,compression_params);
+		std::fstream outfile;
+		std::fstream test;
+		std::fstream test1;
+		outfile.open(name.str(), ios::in|ios::out);
+		outfile.seekp(ios::beg);
+		outfile << " ";
+		test.open("results_out.txt", ios::in|ios::out|ios::trunc);
+		test << outfile.rdbuf();
+		outfile.close();
+		test.close();
+		outfile.open(name.str(), ios::in|ios::out|ios::trunc);
+		test1.open("results_out.txt", ios::in|ios::out);
+		test.open("output_file.out", ios::in);
+		outfile.close();
+		test.close();
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[thread_id+1]);
+		name.str(" ");
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -244,8 +327,26 @@ void *thread_7(void *threadid)
 	pthread_exit(NULL);
 }
 /*The main function*/
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
+	if(argc > 1)
+	{
+		sscanf(argv[1], "%d", &device);
+		printf("Using %s\n", argv[1]);
+        }
+	else if(argc == 1)
+	{
+		printf("Using default\n");
+	}
+        else
+	{
+		printf("Usage: videothread[device]\n");
+		exit(-1);
+         }
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, 640);
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, 480);
+	cap.set(CV_CAP_PROP_FPS, 10.0);
+        printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
   	func_arr[0] = frame_function;
   	func_arr[1] = write_function;
   	func_arr[2] = jpeg_function;
