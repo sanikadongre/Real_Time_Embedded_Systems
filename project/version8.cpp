@@ -20,10 +20,6 @@ using namespace std;
 
 double framerate;
 double value;
-typedef struct
-{
-	unsigned long long sequencePeriods;
-}threadParams_t;
 
 
 sem_t semaphore_arr[threads_count];
@@ -33,10 +29,13 @@ struct sched_param param_arr[threads_count];
 void* (*func_arr[threads_count]) (void*) ;
 double start_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double stop_arr[threads_count] = {0,0,0,0,0,0,0,0};
-double difference_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double wcet_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double avg_diff_arr[threads_count] = {0,0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double jitter_calc_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double run_time[threads_count] = {0,0,0,0,0,0,0,0};
 struct timespec start_time, stop_time, exe_time;
 
 double initial_time;
@@ -45,31 +44,44 @@ double calc_ms(void)
 {
 	struct timespec scene = {0,0};
 	clock_gettime(CLOCK_REALTIME, &scene);
-	return (((scene.tv_sec)*1000.0)+((scene.tv_nsec)/MSEC));
+	return ((scene.tv_sec*1000)+scene.tv_nsec/MSEC);
 }
 
 void jitter_calculations(uint8_t thread_id)
 {
-	double run_time=0.0, jitter_calc=0.0;
+	
 	cout<<"\n\rThread"<<thread_id+0;
  	printf("\n\rframe: %d\n",counter_arr[thread_id]);
     	printf("\n\rstart time in ms is: %0.8lf ms \n", start_arr[thread_id]); 
     	stop_arr[thread_id] = calc_ms();
     	printf("\n\r stop time in ms is: %0.8lf ms\n", stop_arr[thread_id]);
-    	run_time = stop_arr[thread_id] - start_arr[thread_id];
-    	if(counter_arr[thread_id]>0)
-    	{
-      		jitter_calc = run_time - difference_arr[thread_id];
-      		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc);
-		difference_arr[thread_id] = run_time;
+    	run_time[thread_id] = stop_arr[thread_id] - start_arr[thread_id];
+	printf("\n\r The run time is : %0.8lf ms\n", run_time[thread_id]);
+	if(run_time[thread_id] > wcet_arr[thread_id])
+	{
+		wcet_arr[thread_id] = run_time[thread_id];
+		cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
+	}
+	if(counter_arr[thread_id] == 0)
+	{
+      		avg_diff_arr[thread_id] = run_time[thread_id];
+		printf(" the avg difference array is: %0.8lf ms\n", avg_diff_arr[thread_id]);
     	}
-    	acc_jitter_arr[thread_id] += jitter_calc;
+	else if(counter_arr[thread_id] > 0)
+	{
+		jitter_calc_arr[thread_id] = run_time[thread_id] - avg_diff_arr[thread_id];
+		avg_diff_arr[thread_id] = (avg_diff_arr[thread_id] * (counter_arr[thread_id]-1) + run_time[thread_id])/(counter_arr[thread_id]);
+  		printf(" The average difference array is: %0.8lf ms\n ", avg_diff_arr[thread_id]);    		
+		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]);
+		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id];
+	}
 	counter_arr[thread_id]++;
 }
 
 void jitter_final_print(uint8_t thread_id)
 {
-	//cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id];
+	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id];
+	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
   	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
 	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
@@ -130,7 +142,7 @@ void *sequencer(void *threadid)
 	do 
 	{       sem_post(&semaphore_arr[0]);
 		sem_wait(&semaphore_arr[0]);
-
+		start_arr[thread_id] = calc_ms();
 		delay_cnt=0; residual=0.0;
 		do
 		{
@@ -148,7 +160,7 @@ void *sequencer(void *threadid)
 		}while((residual > 0.0) && (delay_cnt < 100));
 		seqCnt++;
 		if(delay_cnt > 1)
-		printf("%d seq_loop\n", delay_cnt);
+			printf("%d seq_loop\n", delay_cnt);
 		 if((seqCnt % 10) == 0)
 			sem_post(&semaphore_arr[1]);
 		  if((seqCnt % 30) == 0)
@@ -164,7 +176,7 @@ void *sequencer(void *threadid)
 		  if((seqCnt % 300) == 0)
 			sem_post(&semaphore_arr[7]);
 
-		  }while((1));
+		  }while(counter_arr[thread_id] < frames_count);
 			sem_post(&semaphore_arr[1]);
 			sem_post(&semaphore_arr[2]);
 			sem_post(&semaphore_arr[3]);
@@ -185,6 +197,7 @@ void *write_function(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
+		printf("\n2nd thread");
 	
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
@@ -204,7 +217,9 @@ void *jpeg_function(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
-	
+		printf("\n3rd thread");
+		
+
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
   	}
@@ -222,6 +237,7 @@ void *thread_4(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
+		printf("\n4th thread");
 	
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
@@ -240,6 +256,7 @@ uint8_t thread_id=4;
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
+		printf("\n5th thread");
 	
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
@@ -258,7 +275,8 @@ void *thread_6(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
-	
+		printf("\n6th thread");	
+
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
   	}
@@ -276,6 +294,8 @@ void *thread_7(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
+		printf("\n7th thread");	
+
 	
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[thread_id+1]);
@@ -294,6 +314,8 @@ void *thread_8(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
+		printf("\n8th thread");	
+
 	
 		jitter_calculations(thread_id);
 		//sem_post(&semaphore_arr[0]);
@@ -308,8 +330,6 @@ int main(int argc, char** argv)
 {
 	clock_gettime(CLOCK_REALTIME, &start_time);
 	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
-  	threadParams_t threadParams[threads_count];
-	threadParams[0].sequencePeriods=900;
 	func_arr[0] = sequencer;
   	func_arr[1] = write_function;
   	func_arr[2] = jpeg_function;
@@ -322,3 +342,5 @@ int main(int argc, char** argv)
  	threads_init();
 	printf("\nAll done\n");
 }
+
+	
