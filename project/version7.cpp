@@ -7,6 +7,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
+#define <syslog.h>
+#define <sys/time.h>
 
 using namespace std;
 
@@ -16,10 +18,17 @@ using namespace std;
 #define NSEC_PER_SEC (1000000000)
 #define frames_count 10
 #define threads_count 7
-#define OK (0)
-
+#define FALSE (0)
 double framerate;
 double value;
+int abortTest = FALSE;
+int abortS1=0, abortS2= 0, abortS3= 0, abortS4=0, abortS5=0, abortS6 =0, abortS6= 0, abortS7=0;
+
+typedef struct
+{
+	int threadid;
+	unsigned lon long sequencePeriods;
+}threadParams_t;
 
 sem_t semaphore_arr[threads_count];
 pthread_t thread_arr[threads_count];
@@ -32,7 +41,8 @@ double difference_arr[threads_count] = {0,0,0,0,0,0,0};
 double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
-struct timeval start_time_val;           
+struct timespec start_time = {0,0};   
+struct timespec stop_time = {0,0};
 
 double initial_time;
 
@@ -105,19 +115,69 @@ void threads_init(void)
 
 void *sequencer(void* ptr)
 {
+	struct timeval current_time_val;
+	struct timespec delay_time = {0,33333333};
+	struct timespec remaning_time;
 	uint8_t thread_id=0;	
+	double current_time;
+	double residual;
+	int rc, delay_cnt =0;
+	unsigned long long seqCnt = 0;
+	threadParams_t *threadParams = (threadParams_t *)threadp;
+	clock_gettime(CLOCK_REALTIME, &current_time_val);
+		
  	while(counter_arr[thread_id] < frames_count)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+	    	do
+	{  
+		delay_cnt = 0, residual =0.0;
+		do
+		{
+			rc=nanosleep(&delay_time, &remaining_time);
+			if(rc == EINTR)
+			{
+				residual = remaining_time.tv_sec + ((double)remaining_time.tv_nsec/1000000000);
+				if(residual> 0.0)
+				printf("residual = %0.8lf, sec=%d, nsec=%d\n", residual, (int)remaining_time.tv_sec, (int)remaining_time.tv_nsec);
+				delay_cnt++;
+			}
+			else if(rc<0)
+			{
+				perror("sequencer nanosleep");
+				exit(-1);
+			}
+		}while((residual>0.0) && (delay_cnt<100));
+		seqCnt++;
+		clock_gettime(CLOCK_REALTIME, &current_time_val);
+		if(delay_cnt > 1)
+		printf(" sequencer looping delay %d\n", delay_cnt);
+		if((seqCnt % 10)==0)
+		sem_post(&semaphore_arr[0]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[1]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[2]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[3]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[4]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[5]);
+		if((seqCnt % 30)==0)
+		sem_post(&semaphore_arr[6]);
+	         }while(!abortTest && (seqCnt < threadParams->sequencePeriods));
+		sem_post(&semaphore_arr[0]);
+	        sem_post(&semaphore_arr[1]);
+	        sem_post(&semaphore_arr[2]);
+	  	sem_post(&semaphore_arr[3]);
+		sem_post(&semaphore_arr[4]);
+		sem_post(&semaphore_arr[5]);
+		sem_post(&semaphore_arr[6]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
-	jitter_final_print(thread_id);
+	
 	pthread_exit(NULL);
 }
 
@@ -232,6 +292,8 @@ void *thread_7(void *threadid)
 /*The main function*/
 int main(int argc, char** argv)
 {
+	clock_gettime(CLOCK_REALTIME, &start_time);
+	printf("The code start time is seconds: %d, nanoseconds: %d\n", start_time.tv_sec, start_time.tv_nsec);
   	func_arr[0] = sequencer;
   	func_arr[1] = write_function;
   	func_arr[2] = jpeg_function;
@@ -241,5 +303,7 @@ int main(int argc, char** argv)
 	func_arr[6] = thread_7;
 	printf("starting threads init\n");
  	threads_init();
+	clock_gettime(CLOCK_REALTIME, &stop_time);
+	printf("The code stop time is seconds: %d, nanoseconds: %d\n", stop_time.tv_sec, stop_time.tv_nsec);
 	printf("\nAll done\n");
 }
