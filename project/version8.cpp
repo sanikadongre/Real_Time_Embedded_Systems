@@ -6,6 +6,7 @@
 #include <sys/param.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -14,23 +15,29 @@ using namespace std;
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
 #define frames_count 10
-#define threads_count 7
+#define threads_count 8
 #define OK (0)
 
 double framerate;
 double value;
+typedef struct
+{
+	unsigned long long sequencePeriods;
+}threadParams_t;
+
 
 sem_t semaphore_arr[threads_count];
 pthread_t thread_arr[threads_count];
 pthread_attr_t attr_arr[threads_count];
 struct sched_param param_arr[threads_count];
 void* (*func_arr[threads_count]) (void*) ;
-double start_arr[threads_count] = {0,0,0,0,0,0,0};
-double stop_arr[threads_count] = {0,0,0,0,0,0,0};
-double difference_arr[threads_count] = {0,0,0,0,0,0,0};
-double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
-double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0};
-uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0};
+double start_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double stop_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double difference_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
+uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0,0};
+struct timespec start_time, stop_time, exe_time;
 
 double initial_time;
 
@@ -70,15 +77,22 @@ void jitter_final_print(uint8_t thread_id)
 
 void threads_init(void)
 {
-	uint8_t i=0,max_priority=20;
-	//max_priority = sched_get_priority_max(SCHED_FIFO);
+	uint8_t i=0; //max_priority=20;
+	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO);
 	printf("\nCreating Threads");
 	for(i=0;i<threads_count;i++)
 	{
 		pthread_attr_init(&attr_arr[i]);
 		pthread_attr_setinheritsched(&attr_arr[i],PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
-		param_arr[i].sched_priority=max_priority-i;	
+		param_arr[0].sched_priority=max_priority;
+		param_arr[1].sched_priority=max_priority-1;
+		param_arr[2].sched_priority=max_priority-2;
+		param_arr[3].sched_priority=max_priority-3;
+		param_arr[4].sched_priority=max_priority-2;
+		param_arr[5].sched_priority=max_priority-3;
+		param_arr[6].sched_priority=max_priority-2;
+		param_arr[7].sched_priority=max_priority-4;	
 		if (sem_init (&semaphore_arr[i], 0, 0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread"<<i;
@@ -93,33 +107,75 @@ void threads_init(void)
 		}
 		cout<<"\nthread "<<i+0<<" created";
 	}
-	sem_post(&semaphore_arr[0]);
+	printf("sanu\n");
+	//sem_post(&semaphore_arr[1]);
+	printf("SANU\n");
 	cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
 	{
   		pthread_join(thread_arr[i],NULL);
 	}
 }
-
-void *frame_function(void* ptr)
+void *sequencer(void *threadid)
 {
-	uint8_t thread_id=0;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
-    		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
+	uint8_t thread_id = 0;	
+	struct timespec delay_time = {0, 33333333};
+	struct timespec remaining_time;
+	struct timespec current_time_val;
+	unsigned long long seqCnt =0; double current_time;
+	double residual; int rc; int delay_cnt =0;
+	clock_gettime(CLOCK_REALTIME, &stop_time);
+	printf("The stop time is %d seconds and %d nanoseconds\n", stop_time.tv_sec, stop_time.tv_nsec);
 	
-		//Do code here
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
-  	}
-	jitter_final_print(thread_id);
+	do 
+	{       sem_post(&semaphore_arr[0]);
+		sem_wait(&semaphore_arr[0]);
+
+		delay_cnt=0; residual=0.0;
+		do
+		{
+			rc=nanosleep(&delay_time, &remaining_time);
+			if(rc==EINTR)
+			{
+				residual = remaining_time.tv_sec + ((double)remaining_time.tv_nsec/(double) NSEC_PER_SEC);
+				delay_cnt++;
+			}
+			else if(rc < 0)
+			{
+				perror(" Sequencer nanosleep");
+				exit(-1);
+			}
+		}while((residual > 0.0) && (delay_cnt < 100));
+		seqCnt++;
+		if(delay_cnt > 1)
+		printf("%d seq_loop\n", delay_cnt);
+		 if((seqCnt % 10) == 0)
+			sem_post(&semaphore_arr[1]);
+		  if((seqCnt % 30) == 0)
+			sem_post(&semaphore_arr[2]);
+		  if((seqCnt % 60) == 0)
+			sem_post(&semaphore_arr[3]);
+		  if((seqCnt % 30) == 0)
+			sem_post(&semaphore_arr[4]);
+		  if((seqCnt % 60) == 0)
+			sem_post(&semaphore_arr[5]);
+		  if((seqCnt % 30) == 0)
+			sem_post(&semaphore_arr[6]);
+		  if((seqCnt % 300) == 0)
+			sem_post(&semaphore_arr[7]);
+
+		  }while((1));
+			sem_post(&semaphore_arr[1]);
+			sem_post(&semaphore_arr[2]);
+			sem_post(&semaphore_arr[3]);
+			sem_post(&semaphore_arr[4]);
+			sem_post(&semaphore_arr[5]);
+			sem_post(&semaphore_arr[6]);
+			sem_post(&semaphore_arr[7]);
 	pthread_exit(NULL);
 }
 
-void *write_function(void *ptr)
+void *write_function(void *threadid)
 {
   	uint8_t thread_id=1;	
  	while(counter_arr[thread_id] < frames_count)
@@ -131,7 +187,7 @@ void *write_function(void *ptr)
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -150,7 +206,7 @@ void *jpeg_function(void *threadid)
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -168,7 +224,7 @@ void *thread_4(void *threadid)
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -186,7 +242,7 @@ uint8_t thread_id=4;
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -204,7 +260,7 @@ void *thread_6(void *threadid)
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[thread_id+1]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -222,21 +278,46 @@ void *thread_7(void *threadid)
 		//Do code here
 	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		//sem_post(&semaphore_arr[thread_id+1]);
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
 }
+
+void *thread_8(void *threadid)
+{
+ uint8_t thread_id=7;	
+ 	while(counter_arr[thread_id] < frames_count)
+  	{
+    		/*Hold semaphore*/
+    		sem_wait(&semaphore_arr[thread_id]);
+	    	start_arr[thread_id] = calc_ms();
+	
+		//Do code here
+	
+		jitter_calculations(thread_id);
+		//sem_post(&semaphore_arr[0]);
+  	}
+	jitter_final_print(thread_id);
+	pthread_exit(NULL);
+}
+
+
 /*The main function*/
 int main(int argc, char** argv)
 {
-  	func_arr[0] = frame_function;
+	clock_gettime(CLOCK_REALTIME, &start_time);
+	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
+  	threadParams_t threadParams[threads_count];
+	threadParams[0].sequencePeriods=900;
+	func_arr[0] = sequencer;
   	func_arr[1] = write_function;
   	func_arr[2] = jpeg_function;
   	func_arr[3] = thread_4;
   	func_arr[4] = thread_5;
 	func_arr[5] = thread_6;
 	func_arr[6] = thread_7;
+	func_arr[7] = thread_8;
 	printf("starting threads init\n");
  	threads_init();
 	printf("\nAll done\n");
