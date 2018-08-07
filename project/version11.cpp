@@ -122,7 +122,7 @@ void threads_init(void)
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
 		param_arr[0].sched_priority=max_priority;
 		param_arr[1].sched_priority=max_priority-1;
-		param_arr[2].sched_priority=max_priority-2;
+		param_arr[2].sched_priority=max_priority-3;
 		param_arr[3].sched_priority=max_priority-3;
 		param_arr[4].sched_priority=max_priority-2;
 		param_arr[5].sched_priority=max_priority-3;
@@ -142,7 +142,7 @@ void threads_init(void)
 		}
 		cout<<"\nthread "<<i+0<<" created";
 	}
-	
+	sem_post(&semaphore_arr[0]);
 	sem_post(&semaphore_arr[1]);
 	cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
@@ -204,7 +204,7 @@ void *sequencer(void *threadid)
 				sem_post(&semaphore_arr[1]);
 				sem_wait(&semaphore_arr[0]);
 			}
-			if((seqCnt % 30) == 0)
+			if((seqCnt % 60) == 0)
 			{
 				
 				sem_post(&semaphore_arr[2]);
@@ -243,27 +243,18 @@ void *sequencer(void *threadid)
 	{
 		sem_post(&semaphore_arr[i]);
 		sem_wait(&semaphore_arr[0]);
-		//sem_post(&semaphore_arr[1]);
 	}
-	//sem_post(&semaphore_arr[1]);
 	pthread_exit(NULL);
 }
 
 void *frame_function(void *threadid)
 {
-	Mat frame_ppm;
-	char *frame_ptr;
-	char buffer[sizeof(char *)];
-	system("uname -a > answer.out");
-	std::ostringstream name;
-	std::vector<int> compression_params;
-	compression_params.push_back(CV_IMWRITE_PXM_BINARY);
-	compression_params.push_back(1);
+	cv::Mat frame_ppm;
   	uint8_t thread_id=1;	
  	while(cond)
   	{
     		/*Hold semaphore*/
-		sem_post(&semaphore_arr[1]);
+		//sem_post(&semaphore_arr[1]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		if(cap_count ==0)
@@ -273,39 +264,28 @@ void *frame_function(void *threadid)
 			clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		}
 		frame_cap = cvQueryFrame(cap);
-		cap_count++;
+		//cap_count++;
+		for(cap_count=1; cap_count<=2000; cap_count++)
+		{
+			cv:: Mat frame_ppm(640,480, CV_8UC3);
+			vector<int> compression_params;
+			compression_params.push_back(CV_IMWRITE_PXM_BINARY);
+			compression_params.push_back(1);
+			cv::imwrite("cap_count.ppm", frame_ppm, compression_params);
+		}
 		if(cap_count == 2000)
 		{
 			clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 			diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
 			printf("\n\r frame capture time is: %0.8lf ns\n", diff);
-			name << "frame_" << cap_count << ".ppm";
-			//memcpy(&frame_ptr, buffer, sizeof(char *));
-			frame_ppm = Mat(480,640, CV_8UC3, frame_ptr);
-			imwrite(name.str(), frame_ppm, compression_params);
-			std::fstream output_file;
-			std::fstream file_check;
-			std::fstream file_check1;
-			output_file.open(name.str(), ios::in|ios::out);
-			output_file.seekp(ios::beg);
-			output_file << " ";
-			file_check.open("results.txt", ios::in|ios::out|ios::trunc);
-			file_check << output_file.rdbuf();
-			output_file.close();
-			file_check.close();
-			output_file.open(name.str(), ios::in|ios::out|ios::trunc);
-			file_check1.open("results.txt", ios::in|ios::out);
-			file_check.open("answer.out", ios::in);
-			output_file << "P6" << endl << "#Time stamp: " << setprecision(2000) << fixed << cap_start_time.tv_nsec/1000000000.0 << "seconds" << endl << "#System Specs: " << file_check.rdbuf() << file_check1.rdbuf();
-			output_file.close();
-			file_check.close();
-			name.str(" ");
+			exit(0);
+			
+		}
 			jitter_calculations(thread_id);
 			sem_post(&semaphore_arr[0]);
-			}
 		}
 	jitter_final_print(thread_id);
-	sem_wait(&semaphore_arr[0]);
+	//sem_wait(&semaphore_arr[0]);
 	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
