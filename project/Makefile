@@ -6,15 +6,15 @@ CFLAGS=	-O0	-g	-std=c++11
 
 CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video -lpthread -lrt 
  
-CPPFILES= version10.cpp
+CPPFILES= version11.cpp
 
 CPPOBJS= ${CPPFILES:.cpp=.o}
 
-build:	version10
+build:	version11
 
 clean:
 	-rm -f *.o *.d *.jpg *.ppm
-	-rm -f version9
+	-rm -f version11
 
-version10:	version10.o	
-	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version10	version10.o	`pkg-config --libs opencv`	$(CPPLIBS)		
+version11:	version11.o	
+	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version11	version11.o	`pkg-config --libs opencv`	$(CPPLIBS)		

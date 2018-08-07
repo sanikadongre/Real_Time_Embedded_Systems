@@ -11,6 +11,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <string.h>
 
 using namespace cv;
 using namespace std;
@@ -239,16 +243,27 @@ void *sequencer(void *threadid)
 	{
 		sem_post(&semaphore_arr[i]);
 		sem_wait(&semaphore_arr[0]);
+		//sem_post(&semaphore_arr[1]);
 	}
+	//sem_post(&semaphore_arr[1]);
 	pthread_exit(NULL);
 }
 
 void *frame_function(void *threadid)
 {
+	Mat frame_ppm;
+	char *frame_ptr;
+	char buffer[sizeof(char *)];
+	system("uname -a > answer.out");
+	std::ostringstream name;
+	std::vector<int> compression_params;
+	compression_params.push_back(CV_IMWRITE_PXM_BINARY);
+	compression_params.push_back(1);
   	uint8_t thread_id=1;	
  	while(cond)
   	{
     		/*Hold semaphore*/
+		sem_post(&semaphore_arr[1]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		if(cap_count ==0)
@@ -264,14 +279,33 @@ void *frame_function(void *threadid)
 			clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 			diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
 			printf("\n\r frame capture time is: %0.8lf ns\n", diff);
-			exit(0);
+			name << "frame_" << cap_count << ".ppm";
+			//memcpy(&frame_ptr, buffer, sizeof(char *));
+			frame_ppm = Mat(480,640, CV_8UC3, frame_ptr);
+			imwrite(name.str(), frame_ppm, compression_params);
+			std::fstream output_file;
+			std::fstream file_check;
+			std::fstream file_check1;
+			output_file.open(name.str(), ios::in|ios::out);
+			output_file.seekp(ios::beg);
+			output_file << " ";
+			file_check.open("results.txt", ios::in|ios::out|ios::trunc);
+			file_check << output_file.rdbuf();
+			output_file.close();
+			file_check.close();
+			output_file.open(name.str(), ios::in|ios::out|ios::trunc);
+			file_check1.open("results.txt", ios::in|ios::out);
+			file_check.open("answer.out", ios::in);
+			output_file << "P6" << endl << "#Time stamp: " << setprecision(2000) << fixed << cap_start_time.tv_nsec/1000000000.0 << "seconds" << endl << "#System Specs: " << file_check.rdbuf() << file_check1.rdbuf();
+			output_file.close();
+			file_check.close();
+			name.str(" ");
+			jitter_calculations(thread_id);
+			sem_post(&semaphore_arr[0]);
+			}
 		}
-		
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
-	}
 	jitter_final_print(thread_id);
+	sem_wait(&semaphore_arr[0]);
 	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
@@ -407,6 +441,8 @@ int main(int argc, char** argv)
 	clock_gettime(CLOCK_REALTIME, &start_time);
 	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
 	namedWindow(frame_window, CV_WINDOW_AUTOSIZE);
+	cvSetCaptureProperty(cap,CV_CAP_PROP_FRAME_WIDTH, HRES);
+	cvSetCaptureProperty(cap,CV_CAP_PROP_FRAME_HEIGHT,VRES);
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
   	func_arr[2] = jpeg_function;
