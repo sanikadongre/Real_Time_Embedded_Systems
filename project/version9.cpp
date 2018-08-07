@@ -14,9 +14,13 @@ using namespace std;
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count 10
+#define frames_count 60
 #define threads_count 8
 #define OK (0)
+#define TRUE (1)
+#define FALSE (0)
+
+int abortTest = FALSE;
 
 double framerate;
 double value;
@@ -36,7 +40,10 @@ double avg_diff_arr[threads_count] = {0,0,0,0,0,0,0,0};
 uint32_t counter_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double jitter_calc_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double run_time[threads_count] = {0,0,0,0,0,0,0,0};
-struct timespec start_time, stop_time, exe_time;
+static struct timespec start_time, stop_time, exe_time, current_time;
+static uint32_t timer_counter = 0, start_sec=0;
+static uint8_t cond = TRUE;
+unsigned long long sequencePeriods[threads_count] ={900};
 
 double initial_time;
 
@@ -85,8 +92,7 @@ void jitter_final_print(uint8_t thread_id)
   	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
 	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
-}
-
+}	
 void threads_init(void)
 {
 	uint8_t i=0; //max_priority=20;
@@ -120,7 +126,7 @@ void threads_init(void)
 		cout<<"\nthread "<<i+0<<" created";
 	}
 	printf("sanu\n");
-	//sem_post(&semaphore_arr[1]);
+	sem_post(&semaphore_arr[1]);
 	printf("SANU\n");
 	cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
@@ -128,69 +134,106 @@ void threads_init(void)
   		pthread_join(thread_arr[i],NULL);
 	}
 }
+
+void time_check(void)
+{
+	if(++timer_counter==frames_count)
+	{
+		cond = FALSE;
+	}
+}
+
+
+
 void *sequencer(void *threadid)
 {
-	uint8_t thread_id = 0;	
+	uint8_t thread_id = 0,i=0;	
 	struct timespec delay_time = {0, 33333333};
 	struct timespec remaining_time;
-	struct timespec current_time_val;
-	unsigned long long seqCnt =0; double current_time;
+	uint32_t time_old = 1;
+	unsigned long long seqCnt =0; 
 	double residual; int rc; int delay_cnt =0;
-	clock_gettime(CLOCK_REALTIME, &stop_time);
-	printf("The stop time is %d seconds and %d nanoseconds\n", stop_time.tv_sec, stop_time.tv_nsec);
-	
+	clock_gettime(CLOCK_REALTIME, &current_time);
+	printf("\n\rThe current time is %d sec and %d nsec\n", current_time.tv_sec, current_time.tv_nsec);
+	//printf("The stop time is %d seconds and %d nanoseconds\n", stop_time.tv_sec, stop_time.tv_nsec);
 	do 
-	{       sem_post(&semaphore_arr[0]);
+	{       
 		sem_wait(&semaphore_arr[0]);
-		start_arr[thread_id] = calc_ms();
+		clock_gettime(CLOCK_REALTIME, &current_time);
 		delay_cnt=0; residual=0.0;
-		do
 		{
-			rc=nanosleep(&delay_time, &remaining_time);
-			if(rc==EINTR)
+			start_sec++;
+			time_old = stop_time.tv_sec;
+			do
 			{
-				residual = remaining_time.tv_sec + ((double)remaining_time.tv_nsec/(double) NSEC_PER_SEC);
-				delay_cnt++;
-			}
-			else if(rc < 0)
-			{
-				perror(" Sequencer nanosleep");
-				exit(-1);
-			}
-		}while((residual > 0.0) && (delay_cnt < 100));
-		seqCnt++;
-		if(delay_cnt > 1)
+				rc=nanosleep(&delay_time, &remaining_time);
+				if(rc==EINTR)
+				{
+					residual = remaining_time.tv_sec + ((double)remaining_time.tv_nsec/(double) NSEC_PER_SEC);
+					delay_cnt++;
+				}
+				else if(rc < 0)
+				{
+					perror(" Sequencer nanosleep");
+					exit(-1);
+				}
+			}while((residual > 0.0) && (delay_cnt < 100));
+			seqCnt++;
+			clock_gettime(CLOCK_REALTIME, &current_time);
+				if(delay_cnt > 1)
 			printf("%d seq_loop\n", delay_cnt);
-		 if((seqCnt % 10) == 0)
-			sem_post(&semaphore_arr[1]);
-		  if((seqCnt % 30) == 0)
-			sem_post(&semaphore_arr[2]);
-		  if((seqCnt % 60) == 0)
-			sem_post(&semaphore_arr[3]);
-		  if((seqCnt % 30) == 0)
-			sem_post(&semaphore_arr[4]);
-		  if((seqCnt % 60) == 0)
-			sem_post(&semaphore_arr[5]);
-		  if((seqCnt % 30) == 0)
-			sem_post(&semaphore_arr[6]);
-		  if((seqCnt % 300) == 0)
-			sem_post(&semaphore_arr[7]);
+			if((seqCnt % 10) == 0)
+			{
+				sem_post(&semaphore_arr[1]);
+				sem_wait(&semaphore_arr[0]);
+			}
+			if((seqCnt % 30) == 0)
+			{
+				time_check();
+				sem_post(&semaphore_arr[2]);
+				sem_wait(&semaphore_arr[0]);
+			}
+		  	if((seqCnt % 60) == 0)
+			{
+				sem_post(&semaphore_arr[3]);
+				sem_wait(&semaphore_arr[0]);
+			}
+		  	if((seqCnt % 30) == 0)
+			{
+				sem_post(&semaphore_arr[4]);
+				sem_wait(&semaphore_arr[0]);
+			}
+			if((seqCnt % 60) == 0)
+			{
+				sem_post(&semaphore_arr[5]);
+				sem_wait(&semaphore_arr[0]);
+			}
+			if((seqCnt % 30) == 0)
+			{
+				sem_post(&semaphore_arr[6]);
+				sem_wait(&semaphore_arr[0]);
+			}
+			if((seqCnt % 300) == 0)
+			{
+				sem_post(&semaphore_arr[7]);
+				sem_wait(&semaphore_arr[0]);
+			}
+		}
+		sem_post(&semaphore_arr[0]);
 
-		  }while(counter_arr[thread_id] < frames_count);
-			sem_post(&semaphore_arr[1]);
-			sem_post(&semaphore_arr[2]);
-			sem_post(&semaphore_arr[3]);
-			sem_post(&semaphore_arr[4]);
-			sem_post(&semaphore_arr[5]);
-			sem_post(&semaphore_arr[6]);
-			sem_post(&semaphore_arr[7]);
+	}while(cond);
+	for(i=1;i<threads_count;i++)
+	{
+		sem_post(&semaphore_arr[i]);
+		sem_wait(&semaphore_arr[0]);
+	}
 	pthread_exit(NULL);
 }
 
 void *write_function(void *threadid)
 {
   	uint8_t thread_id=1;	
- 	while(counter_arr[thread_id] < frames_count)
+ 	while(cond)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
@@ -200,18 +243,19 @@ void *write_function(void *threadid)
 		printf("\n2nd thread");
 	
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
-  	}
+		sem_post(&semaphore_arr[0]);
+	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 /* Thread to perform hough eliptical transform*/
 void *jpeg_function(void *threadid)
 {
-  uint8_t thread_id=2;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=2;		
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -221,17 +265,18 @@ void *jpeg_function(void *threadid)
 		
 
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
+		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 void *thread_4(void *threadid)
 {
-  uint8_t thread_id=3;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=3;		
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -240,17 +285,18 @@ void *thread_4(void *threadid)
 		printf("\n4th thread");
 	
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
+		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 void *thread_5(void *threadid)
 {
-uint8_t thread_id=4;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=4;	
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -259,17 +305,18 @@ uint8_t thread_id=4;
 		printf("\n5th thread");
 	
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
+		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 void *thread_6(void *threadid)
 {
-  uint8_t thread_id=5;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=5;		
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -278,17 +325,18 @@ void *thread_6(void *threadid)
 		printf("\n6th thread");	
 
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
-  	}
+		sem_post(&semaphore_arr[0]);
+	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 void *thread_7(void *threadid)
 {
- uint8_t thread_id=6;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=6;		
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -298,17 +346,18 @@ void *thread_7(void *threadid)
 
 	
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[thread_id+1]);
+		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 void *thread_8(void *threadid)
 {
- uint8_t thread_id=7;	
- 	while(counter_arr[thread_id] < frames_count)
-  	{
+	uint8_t thread_id=7;	
+ 	while(cond)
+	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
@@ -318,9 +367,10 @@ void *thread_8(void *threadid)
 
 	
 		jitter_calculations(thread_id);
-		//sem_post(&semaphore_arr[0]);
+		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
+	sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 

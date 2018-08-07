@@ -10,11 +10,11 @@ CPPFILES= version8.cpp
 
 CPPOBJS= ${CPPFILES:.cpp=.o}
 
-build:	version8
+build:	version9
 
 clean:
 	-rm -f *.o *.d *.jpg *.ppm
-	-rm -f version8
+	-rm -f version9
 
-version8:	version8.o	
-	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version8	version8.o	`pkg-config --libs opencv`	$(CPPLIBS)		
+version9:	version9.o	
+	$(CC)	$(LDFLAGS)	$(INCLUDES)	$(CFLAGS)	-o	version9	version9.o	`pkg-config --libs opencv`	$(CPPLIBS)		
