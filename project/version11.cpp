@@ -14,13 +14,13 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <opencv2/opencv.hpp>
 #include <string.h>
 
 using namespace cv;
 using namespace std;
-int dev=0;
-IplImage* frame_cap;
-CvCapture* cap;
+int device=0;
+VideoCapture cap(0);
 
 #define HRES 640
 #define VRES 480
@@ -32,6 +32,7 @@ CvCapture* cap;
 #define TRUE (1)
 #define FALSE (0)
 #define ERROR (-1)
+
 
 
 int abortTest = FALSE;
@@ -142,8 +143,14 @@ void threads_init(void)
 		}
 		cout<<"\nthread "<<i+0<<" created";
 	}
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	sem_post(&semaphore_arr[1]);
+	sem_post(&semaphore_arr[2]);
+	sem_post(&semaphore_arr[3]);
+	sem_post(&semaphore_arr[4]);
+	sem_post(&semaphore_arr[5]);
+	sem_post(&semaphore_arr[6]);
+	sem_post(&semaphore_arr[7]);
 	cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
 	{
@@ -249,7 +256,7 @@ void *sequencer(void *threadid)
 
 void *frame_function(void *threadid)
 {
-	cv::Mat frame_ppm;
+	Mat ppm_frame, jpg_frame;
   	uint8_t thread_id=1;	
  	while(cond)
   	{
@@ -263,22 +270,30 @@ void *frame_function(void *threadid)
 			printf("\n2nd thread");
 			clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		}
-		frame_cap = cvQueryFrame(cap);
+
+		cap.open(device);
+		
+		
 		//cap_count++;
 		for(cap_count=1; cap_count<=2000; cap_count++)
 		{
-			cv:: Mat frame_ppm(640,480, CV_8UC3);
-			vector<int> compression_params;
+			cap >> ppm_frame;
+			cv:: Mat ppm_frame(640,480, CV_8UC3);
+			std::vector<int> compression_params;
 			compression_params.push_back(CV_IMWRITE_PXM_BINARY);
 			compression_params.push_back(1);
-			cv::imwrite("cap_count.ppm", frame_ppm, compression_params);
+			cv::imwrite("cap_count.ppm", ppm_frame, compression_params);
+			compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+			compression_params.push_back(95);
+			cv::imwrite("jpeg_count.jpg", jpg_frame, compression_params);
 		}
 		if(cap_count == 2000)
 		{
 			clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 			diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
 			printf("\n\r frame capture time is: %0.8lf ns\n", diff);
-			exit(0);
+			cap.release();
+		
 			
 		}
 			jitter_calculations(thread_id);
@@ -297,6 +312,7 @@ void *jpeg_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[2]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -318,6 +334,7 @@ void *thread_4(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[3]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -338,6 +355,7 @@ void *thread_5(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[4]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -358,6 +376,7 @@ void *thread_6(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[5]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -378,6 +397,7 @@ void *thread_7(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[6]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -399,6 +419,7 @@ void *thread_8(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		//sem_post(&semaphore_arr[7]);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
@@ -421,8 +442,6 @@ int main(int argc, char** argv)
 	clock_gettime(CLOCK_REALTIME, &start_time);
 	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
 	namedWindow(frame_window, CV_WINDOW_AUTOSIZE);
-	cvSetCaptureProperty(cap,CV_CAP_PROP_FRAME_WIDTH, HRES);
-	cvSetCaptureProperty(cap,CV_CAP_PROP_FRAME_HEIGHT,VRES);
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
   	func_arr[2] = jpeg_function;
