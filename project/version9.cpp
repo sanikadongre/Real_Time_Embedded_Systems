@@ -7,8 +7,24 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <string.h>
+#include <mqueue.h>
+#include <stdbool.h>
+#include <fstream>
+#include <sstream>
+#include <sys/msg.h>
+#include <sys/ipc.h>
+#include <opencv/highgui.h>
+#include <opencv2/opencv.hpp>
 
+
+using namespace cv;
 using namespace std;
+
+#define ppm_mqueue;
+#define jpg_mqueue;
+#define ERROR -1
+
 
 #define HRES 640
 #define VRES 480
@@ -22,8 +38,14 @@ using namespace std;
 
 int abortTest = FALSE;
 
+
+int device=0;
+VideoCapture cap(1);
+
 double framerate;
 double value;
+
+#define cap_count (60);
 
 
 sem_t semaphore_arr[threads_count];
@@ -146,7 +168,7 @@ void time_check(void)
 
 
 void *sequencer(void *threadid)
-{
+{	
 	uint8_t thread_id = 0,i=0;	
 	struct timespec delay_time = {0, 33333333};
 	struct timespec remaining_time;
@@ -230,18 +252,33 @@ void *sequencer(void *threadid)
 	pthread_exit(NULL);
 }
 
-void *write_function(void *threadid)
-{
+void *frame_function(void *threadid)
+{	
+	
+	Mat ppm_frame;
   	uint8_t thread_id=1;	
+	int i;		
  	while(cond)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
+		clock_gettime(CLOCK_REALTIME, &start_time);
+		printf("camera stop time is: %d\n", start_time.tv_sec);
+		cap.open(device);
+		
 		//Do code here
 		printf("\n2nd thread");
-	
+		for(i=0; i< cap_count ; i++)
+		{
+			cap >> ppm_frame;
+		}
+		if(cap_count == 2000)
+		{	
+			clock_gettime(CLOCK_REALTIME, &stop_time);
+			printf("camera stop time is: %d\n", stop_time.tv_sec);
+			cap.release();
+		}	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 	}
@@ -251,7 +288,7 @@ void *write_function(void *threadid)
 }
 
 /* Thread to perform hough eliptical transform*/
-void *jpeg_function(void *threadid)
+void *write_function(void *threadid)
 {
 	uint8_t thread_id=2;		
  	while(cond)
@@ -381,8 +418,8 @@ int main(int argc, char** argv)
 	clock_gettime(CLOCK_REALTIME, &start_time);
 	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
 	func_arr[0] = sequencer;
-  	func_arr[1] = write_function;
-  	func_arr[2] = jpeg_function;
+  	func_arr[1] = frame_function;
+  	func_arr[2] = write_function;
   	func_arr[3] = thread_4;
   	func_arr[4] = thread_5;
 	func_arr[5] = thread_6;
