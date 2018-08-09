@@ -16,13 +16,13 @@
 #include <sys/ipc.h>
 #include <opencv/highgui.h>
 #include <opencv2/opencv.hpp>
-
+#include <mqueue.h>
 
 using namespace cv;
 using namespace std;
 
-#define ppm_mqueue;
-#define jpg_mqueue;
+#define ppm_mqueue  "/ppm_mq"
+#define jpg_mqueue "/jpg_mq"
 #define ERROR -1
 
 
@@ -41,11 +41,12 @@ int abortTest = FALSE;
 
 int device=0;
 VideoCapture cap(1);
+pthread_mutex_t frame_cap;
 
 double framerate;
 double value;
 
-#define cap_count (60);
+#define cap_count (60)
 
 
 sem_t semaphore_arr[threads_count];
@@ -66,6 +67,7 @@ static struct timespec start_time, stop_time, exe_time, current_time;
 static uint32_t timer_counter = 0, start_sec=0;
 static uint8_t cond = TRUE;
 unsigned long long sequencePeriods[threads_count] ={900};
+pthread_mutex_t frame_cap;
 
 double initial_time;
 
@@ -211,12 +213,12 @@ void *sequencer(void *threadid)
 			}
 			if((seqCnt % 30) == 0)
 			{
-				time_check();
 				sem_post(&semaphore_arr[2]);
 				sem_wait(&semaphore_arr[0]);
 			}
 		  	if((seqCnt % 60) == 0)
-			{
+			{	
+				time_check();
 				sem_post(&semaphore_arr[3]);
 				sem_wait(&semaphore_arr[0]);
 			}
@@ -270,8 +272,10 @@ void *frame_function(void *threadid)
 		//Do code here
 		printf("\n2nd thread");
 		for(i=0; i< cap_count ; i++)
-		{
+		{	
+			pthread_mutex_lock(&frame_cap);
 			cap >> ppm_frame;
+			pthread_mutex_unlock(&frame_cap);
 		}
 		if(cap_count == 2000)
 		{	
@@ -426,7 +430,14 @@ int main(int argc, char** argv)
 	func_arr[6] = thread_7;
 	func_arr[7] = thread_8;
 	printf("starting threads init\n");
+	pthread_mutex_init(&frame_cap, NULL);
  	threads_init();
+	if(pthread_mutex_destroy(&frame_cap)!=0)
+		perror("mutex A destroy");
+	//if(pthread_mutex_destroy(&frame_cap)!=0)
+	//	perror("mutex A destroy");
+	//if(pthread_mutex_destroy(&frame_cap)!=0)
+		//perror("mutex A destroy");
 	printf("\nAll done\n");
 }
 
