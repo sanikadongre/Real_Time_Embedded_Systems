@@ -303,7 +303,7 @@ void *write_function(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n3rd thread\n");
 		name.str("Frame_")
-		write_frame = Mat(480, 640, CV_8UC4, frame_ptr);
+		ppm_frame = Mat(480, 640, CV_8UC4, frame_ptr);
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
