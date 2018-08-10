@@ -20,8 +20,9 @@
 using namespace cv;
 using namespace std;
 
-
 VideoCapture cap(0);
+
+//VideoCapture cap(1);
 Mat ppm_frame(480,640,CV_8UC3);
 uint8_t *frame_ptr;
 
@@ -43,9 +44,8 @@ double framerate;
 double value;
 int cap_count= 0;
 double diff=0;
+int device = 0;
 
-
-char frame_window[] = "Frame WIndow";
 sem_t semaphore_arr[threads_count];
 pthread_t thread_arr[threads_count];
 pthread_attr_t attr_arr[threads_count];
@@ -216,7 +216,7 @@ void *sequencer(void *threadid)
 				sem_post(&semaphore_arr[2]);
 				//sem_wait(&semaphore_arr[0]);
 			}
-		  	if((seqCnt % 60) == 0)
+		  	if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[3]);
 				//sem_wait(&semaphore_arr[0]);
@@ -226,7 +226,7 @@ void *sequencer(void *threadid)
 				sem_post(&semaphore_arr[4]);
 				//sem_wait(&semaphore_arr[0]);
 			}
-			if((seqCnt % 60) == 0)
+			if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[5]);
 				//sem_wait(&semaphore_arr[0]);
@@ -270,7 +270,7 @@ void *frame_function(void *threadid)
 			//printf("\n2nd thread");
 			//clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		//}
-		cap.open(FALSE);	
+		cap.open(device);
 		cap >> ppm_frame;
 		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
@@ -294,7 +294,7 @@ void *write_function(void *threadid)
 	ostringstream name;
 	vector<int> compression_params;
 	compression_params.push_back(CV_IMWRITE_PXM_BINARY);
-	compression_params.push_back(1);
+	compression_params.push_back(95);
  	while(cond)
 	{
     		/*Hold semaphore*/
@@ -314,18 +314,26 @@ void *write_function(void *threadid)
 	pthread_exit(NULL);
 }
 
-void *thread_4(void *threadid)
+void *jpg_function(void *threadid)
 {
-	uint8_t thread_id=3;		
+	
+	uint8_t thread_id=3;	
+	ostringstream name;
+	vector<int> compression_params;
+	compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+	compression_params.push_back(1);	
  	while(cond)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
+		
 		//Do code here
-		printf("\n4th thread");
-	
+		printf("\n4th thread\n");
+		name.str("Frame_");
+		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
+		imwrite(name.str(), ppm_frame, compression_params);
+		name.str(" ");
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
   	}
@@ -342,7 +350,7 @@ void *thread_5(void *threadid)
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
+		
 		//Do code here
 		printf("\n5th thread");
 	
@@ -418,15 +426,23 @@ void *thread_8(void *threadid)
 
 
 /*The main function*/
-int main(int argc, char** argv)
+int main(int argc, char *argv[])
 {
 	clock_gettime(CLOCK_REALTIME, &start_time);
 	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
-	namedWindow(frame_window, CV_WINDOW_AUTOSIZE);
+
+	if(argc > 1)
+	{
+		sscanf(argv[1], "%d", &device);
+	}
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES);
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES);
+	cap.set(CV_CAP_PROP_FPS,10.0);
+	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
   	func_arr[2] = write_function;
-  	func_arr[3] = thread_4;
+  	func_arr[3] = jpg_function;
   	func_arr[4] = thread_5;
 	func_arr[5] = thread_6;
 	func_arr[6] = thread_7;
