@@ -258,7 +258,7 @@ void *frame_function(void *threadid)
 	
   	uint8_t thread_id=1;	
 	
-	
+	system("uname -a > system.out");
  	while(cond)
   	{
     		/*Hold semaphore*/
