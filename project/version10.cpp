@@ -11,18 +11,24 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <mqueue.h>
+#include <stdbool.h>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
 
 using namespace cv;
 using namespace std;
-int dev=0;
-IplImage* frame_cap;
-CvCapture* cap;
+
+int device=0;
+VideoCapture cap(1);
+pthread_mutex_t framecap;
 
 #define HRES 640
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count 2000
+#define frames_count 10
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -57,8 +63,10 @@ static uint32_t timer_counter = 0, start_sec=0;
 static uint8_t cond = TRUE;
 static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
-
+static struct mq_attr frame_mq_attr;
 double initial_time;
+
+static char buffer[sizeof(char *)];
 
 double calc_ms(void)
 {
@@ -170,7 +178,7 @@ void *sequencer(void *threadid)
 	//printf("The stop time is %d seconds and %d nanoseconds\n", stop_time.tv_sec, stop_time.tv_nsec);
 	do 
 	{       
-		sem_wait(&semaphore_arr[0]);
+		//sem_wait(&semaphore_arr[0]);
 		clock_gettime(CLOCK_REALTIME, &current_time);
 		delay_cnt=0; residual=0.0;
 		{
@@ -198,38 +206,38 @@ void *sequencer(void *threadid)
 			{
 				time_check();
 				sem_post(&semaphore_arr[1]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 			if((seqCnt % 30) == 0)
 			{
 				
 				sem_post(&semaphore_arr[2]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 		  	if((seqCnt % 60) == 0)
 			{
 				sem_post(&semaphore_arr[3]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 		  	if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[4]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 			if((seqCnt % 60) == 0)
 			{
 				sem_post(&semaphore_arr[5]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 			if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[6]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 			if((seqCnt % 300) == 0)
 			{
 				sem_post(&semaphore_arr[7]);
-				sem_wait(&semaphore_arr[0]);
+				//sem_wait(&semaphore_arr[0]);
 			}
 		}
 		sem_post(&semaphore_arr[0]);
@@ -238,18 +246,20 @@ void *sequencer(void *threadid)
 	for(i=1;i<threads_count;i++)
 	{
 		sem_post(&semaphore_arr[i]);
-		sem_wait(&semaphore_arr[0]);
+		//sem_wait(&semaphore_arr[0]);
 	}
 	pthread_exit(NULL);
 }
 
 void *frame_function(void *threadid)
 {
+	Mat ppm_frame;
   	uint8_t thread_id=1;	
+	
  	while(cond)
   	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		if(cap_count ==0)
 		{
@@ -257,44 +267,49 @@ void *frame_function(void *threadid)
 			printf("\n2nd thread");
 			clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		}
-		frame_cap = cvQueryFrame(cap);
-		cap_count++;
-		if(cap_count == 2000)
+		
+		cap.open(device);
+		for(cap_count = 1; cap_count<10;cap_count++)
+		{
+			pthread_mutex_lock(&framecap);
+			cap >> ppm_frame;
+			pthread_mutex_unlock(&framecap);
+
+		}
+		if(cap_count == 10)
 		{
 			clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 			diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
+			cap.release();
 			printf("\n\r frame capture time is: %0.8lf ns\n", diff);
-			exit(0);
+
 		}
 		
-	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
 /* Thread to perform hough eliptical transform*/
-void *jpeg_function(void *threadid)
+void *write_function(void *threadid)
 {
-	uint8_t thread_id=2;		
+	
+	uint8_t thread_id=2;
+	
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
 		printf("\n3rd thread");
-		
-
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -304,7 +319,7 @@ void *thread_4(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -314,7 +329,7 @@ void *thread_4(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -324,7 +339,7 @@ void *thread_5(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -334,7 +349,7 @@ void *thread_5(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -344,7 +359,7 @@ void *thread_6(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -354,7 +369,7 @@ void *thread_6(void *threadid)
 		sem_post(&semaphore_arr[0]);
 	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -364,7 +379,7 @@ void *thread_7(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -375,7 +390,7 @@ void *thread_7(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -385,7 +400,7 @@ void *thread_8(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
+    		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -396,7 +411,7 @@ void *thread_8(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	sem_post(&semaphore_arr[0]);
+	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -409,14 +424,17 @@ int main(int argc, char** argv)
 	namedWindow(frame_window, CV_WINDOW_AUTOSIZE);
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
-  	func_arr[2] = jpeg_function;
+  	func_arr[2] = write_function;
   	func_arr[3] = thread_4;
   	func_arr[4] = thread_5;
 	func_arr[5] = thread_6;
 	func_arr[6] = thread_7;
 	func_arr[7] = thread_8;
 	printf("starting threads init\n");
+	pthread_mutex_init(&framecap, NULL);
  	threads_init();
+	if(pthread_mutex_destroy(&framecap)!= 0)
+	perror("mutex A destroy");
 	printf("\nAll done\n");
 }
 
