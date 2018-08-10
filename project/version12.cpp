@@ -20,9 +20,10 @@
 using namespace cv;
 using namespace std;
 
-int device=0;
-VideoCapture cap(1);
-pthread_mutex_t framecap;
+
+VideoCapture cap(0);
+Mat ppm_frame(480,640,CV_8UC3);
+uint8_t *frame_ptr;
 
 #define HRES 640
 #define VRES 480
@@ -42,6 +43,7 @@ double framerate;
 double value;
 int cap_count= 0;
 double diff=0;
+
 
 char frame_window[] = "Frame WIndow";
 sem_t semaphore_arr[threads_count];
@@ -253,37 +255,28 @@ void *sequencer(void *threadid)
 
 void *frame_function(void *threadid)
 {
-	Mat ppm_frame;
+	
   	uint8_t thread_id=1;	
+	
 	
  	while(cond)
   	{
     		/*Hold semaphore*/
     		//sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-		if(cap_count ==0)
-		{
+		//if(cap_count ==0)
+		//{
 			//Do code here
-			printf("\n2nd thread");
-			clock_gettime(CLOCK_REALTIME, &cap_start_time);
-		}
-		
-		cap.open(device);
-		for(cap_count = 1; cap_count<10;cap_count++)
-		{
-			pthread_mutex_lock(&framecap);
-			cap >> ppm_frame;
-			pthread_mutex_unlock(&framecap);
-
-		}
-		if(cap_count == 10)
-		{
-			clock_gettime(CLOCK_REALTIME, &cap_stop_time);
-			diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
-			cap.release();
-			printf("\n\r frame capture time is: %0.8lf ns\n", diff);
-
-		}
+			//printf("\n2nd thread");
+			//clock_gettime(CLOCK_REALTIME, &cap_start_time);
+		//}
+		cap.open(FALSE);	
+		cap >> ppm_frame;
+		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
+		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
+		cap.release();
+		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
+		frame_ptr = (uint8_t*) ppm_frame.data;
 		
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
@@ -298,13 +291,22 @@ void *write_function(void *threadid)
 {
 	
 	uint8_t thread_id=2;
-	
+	ostringstream name;
+	vector<int> compression_params;
+	compression_params.push_back(CV_IMWRITE_PXM_BINARY);
+	compression_params.push_back(1);
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+		
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-		printf("\n3rd thread");
+		printf("\n3rd thread\n");
+		name.str("Frame_")
+		write_frame = Mat(480, 640, CV_8UC4, frame_ptr);
+		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
+		imwrite(name.str(), ppm_frame, compression_params);
+		name.str(" ");
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
   	}
@@ -319,7 +321,7 @@ void *thread_4(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -339,7 +341,7 @@ void *thread_5(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -359,7 +361,7 @@ void *thread_6(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -379,7 +381,7 @@ void *thread_7(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
@@ -400,7 +402,7 @@ void *thread_8(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 	
 		//Do code here
