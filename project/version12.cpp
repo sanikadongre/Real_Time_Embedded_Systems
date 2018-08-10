@@ -262,7 +262,7 @@ void *frame_function(void *threadid)
  	while(cond)
   	{
     		/*Hold semaphore*/
-    		//sem_wait(&semaphore_arr[thread_id]);
+    		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		//if(cap_count ==0)
 		//{
@@ -302,8 +302,7 @@ void *write_function(void *threadid)
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n3rd thread\n");
-		name.str("Frame_")
-		ppm_frame = Mat(480, 640, CV_8UC4, frame_ptr);
+		name.str("Frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
@@ -433,10 +432,7 @@ int main(int argc, char** argv)
 	func_arr[6] = thread_7;
 	func_arr[7] = thread_8;
 	printf("starting threads init\n");
-	pthread_mutex_init(&framecap, NULL);
  	threads_init();
-	if(pthread_mutex_destroy(&framecap)!= 0)
-	perror("mutex A destroy");
 	printf("\nAll done\n");
 }
 
