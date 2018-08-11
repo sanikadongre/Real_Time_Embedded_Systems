@@ -68,7 +68,7 @@ static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
-
+sem_t ppm_sem;
 static char buffer[sizeof(char *)];
 
 double calc_ms(void)
@@ -140,7 +140,13 @@ void threads_init(void)
 			cout<<"\n\rFailed to initialize semaphore for thread"<<i;
 			exit (-1);
 		}
+		if(sem_init(&ppm_sem, 0))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
 		cout<<"\nSemaphore "<<i+0<<" initialized"; 
+		cout<<"\nPPM semaphore initialized";
         	pthread_attr_setschedparam(&attr_arr[i], &param_arr[i]);
 		if(pthread_create(&thread_arr[i], &attr_arr[i], func_arr[i], (void *)0) !=0)
 		{
@@ -315,13 +321,13 @@ void *write_function(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
+	sem_post(&ppm_sem);
 	pthread_exit(NULL);
 }
 
 void *jpg_function(void *threadid)
 {
-	
+	Mat frame jpg= imrea(name.str(), CV_LOAD_IMAGE_COLOR);
 	uint8_t thread_id=3;	
 	ostringstream name;
 	vector<int> compression_params;
@@ -330,12 +336,16 @@ void *jpg_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
+		sem_wait(&ppm_sem);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		
 		//Do code here
 		printf("\n4th thread\n");
 		name.str("Frame_");
+		file_name<<"frame_"<<count<<".ppm";
+		Mat frame_jpg = imread(file_name.str(),CV_LOAD_IMAGE_COLOR);
+		file_name.str("");
 		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
