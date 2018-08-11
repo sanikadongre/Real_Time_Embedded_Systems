@@ -307,8 +307,8 @@ void *write_function(void *threadid)
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		time (&rawtime);
  		timecur = localtime (&rawtime);
- 		printf ("Current local time and date: %s", asctime(timecur));
-		putText(ppm_frame,asc(timecur),Point(470,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
+ 		//printf ("Current local time and date: %s", asctime(timecur));
+		putText(ppm_frame,asctime(timecur),Point(465,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
