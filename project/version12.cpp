@@ -30,7 +30,7 @@ uint8_t *frame_ptr;
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count 10
+#define frames_count  2000
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -270,11 +270,11 @@ void *frame_function(void *threadid)
 			//printf("\n2nd thread");
 			//clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		//}
-		cap.open(device);
+		
 		cap >> ppm_frame;
 		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
-		cap.release();
+		
 		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
 		
@@ -321,7 +321,7 @@ void *jpg_function(void *threadid)
 	ostringstream name;
 	vector<int> compression_params;
 	compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
-	compression_params.push_back(1);	
+	compression_params.push_back(95);	
  	while(cond)
 	{
     		/*Hold semaphore*/
@@ -437,7 +437,9 @@ int main(int argc, char *argv[])
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES);
-	cap.set(CV_CAP_PROP_FPS,10.0);
+	cap.set(CV_CAP_PROP_FPS,2000.0);
+	// XInitThreads();
+	cap.open(device);
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
@@ -449,6 +451,7 @@ int main(int argc, char *argv[])
 	func_arr[7] = thread_8;
 	printf("starting threads init\n");
  	threads_init();
+	cap.release();
 	printf("\nAll done\n");
 }
 
