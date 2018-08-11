@@ -45,7 +45,8 @@ double value;
 int cap_count= 0;
 double diff=0;
 int device = 0;
-
+time_t rawtime;
+struct tm * timeinfo;
 sem_t semaphore_arr[threads_count];
 pthread_t thread_arr[threads_count];
 pthread_attr_t attr_arr[threads_count];
@@ -453,6 +454,9 @@ int main(int argc, char *argv[])
 	printf("starting threads init\n");
  	threads_init();
 	cap.release();
+	time (&rawtime);
+ 	 timeinfo = localtime (&rawtime);
+ 	 printf ("Current local time and date: %s", asctime(timeinfo));
 	printf("\nAll done\n");
 }
 
