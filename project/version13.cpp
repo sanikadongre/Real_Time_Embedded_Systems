@@ -30,7 +30,7 @@ uint8_t *frame_ptr;
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count  2000
+#define frames_count  10
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -438,7 +438,7 @@ int main(int argc, char *argv[])
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES);
-	cap.set(CV_CAP_PROP_FPS,2000.0);
+	cap.set(CV_CAP_PROP_FPS,10.0);
 	// XInitThreads();
 	cap.open(device);
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
