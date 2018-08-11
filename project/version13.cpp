@@ -333,6 +333,7 @@ void *jpg_function(void *threadid)
 		printf("\n4th thread\n");
 		name.str("Frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
+		putText(ppm_frame, "sanika",Point(450,450),FONT_HERSHEY_DUPLEX,1,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
