@@ -305,7 +305,10 @@ void *write_function(void *threadid)
 		printf("\n3rd thread\n");
 		name.str("Frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		putText(ppm_frame, "sanika",Point(470,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
+		time (&rawtime);
+ 		timeinfo = localtime (&rawtime);
+ 		printf ("Current local time and date: %s", asctime(timeinfo));
+		putText(ppm_frame,asc(timeinfo),Point(470,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
@@ -454,9 +457,7 @@ int main(int argc, char *argv[])
 	printf("starting threads init\n");
  	threads_init();
 	cap.release();
-	time (&rawtime);
- 	 timeinfo = localtime (&rawtime);
- 	 printf ("Current local time and date: %s", asctime(timeinfo));
+	
 	printf("\nAll done\n");
 }
 
