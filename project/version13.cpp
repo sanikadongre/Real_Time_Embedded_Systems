@@ -304,7 +304,7 @@ void *write_function(void *threadid)
 		printf("\n3rd thread\n");
 		name.str("Frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		putText(ppm_frame, "sanika",Point(470,470),FONT_HERSHEY_COMPLEX_SMALL,1,Scalar(255,255,0),2);
+		putText(ppm_frame, "sanika",Point(470,470),FONT_HERSHEY_COMPLEX_SMALL,0.5,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
