@@ -352,10 +352,8 @@ void *sequencer(void *threadid)
 	pthread_exit(NULL);
 }
 /****************************************************
-* Frame function: The function used to capture frames
+*Frame function: The function used to capture frames
 *from the camera
-*
-*
 ****************************************************/
 void *frame_function(void *threadid)
 {
@@ -373,7 +371,7 @@ void *frame_function(void *threadid)
 		cap >> ppm_frame; //To get the next frames
 		sem_post(&ppm_sem);
 		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
-		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
+		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec)); //To get the difference between capture stop time and capture start time
 		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
 		jitter_calculations(thread_id);
@@ -382,7 +380,10 @@ void *frame_function(void *threadid)
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
 }
-
+/*******************************************************************
+*Write Function: is used for writing the ppm images to the disk
+*The imwrite OpenCv function is used for writing the ppm images
+*******************************************************************/
 void *write_function(void *threadid)
 {
 	
@@ -407,7 +408,7 @@ void *write_function(void *threadid)
 		name.str(" ");
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
-		sem_post(&ppm_done_sem);
+		sem_post(&ppm_done_sem); //semaphore to indicate ppm write is done
 		sem_post(&ts1_sem);
 		sem_post(&ppm_sem);
 		
@@ -415,7 +416,12 @@ void *write_function(void *threadid)
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
 }
-
+/********************************************
+*Jpg function: It is a function for converting 
+*the ppm images into jpg(compressed images)
+*It reads the ppm images and converts them 
+*into jpg images
+********************************************/
 void *jpg_function(void *threadid)
 {
 	
@@ -435,10 +441,10 @@ void *jpg_function(void *threadid)
 		printf("\n4th thread\n");
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR);
+		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR); //To read the ppm image and store it as Mat
 		name.str("");
 		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
-		imwrite(name.str(), frame_jpg, compression_params);
+		imwrite(name.str(), frame_jpg, compression_params); //To write the jpg images to the disk
 		name.str(" ");
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
@@ -447,7 +453,12 @@ void *jpg_function(void *threadid)
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
 }
-
+/***************************************************
+*Timestamp function to add timestamps embedded in the
+*PPM header for each frame and also the timestamps 
+*for the system version of the raspberry pi 
+*embedded in the ppm header
+****************************************************/
 
 void *timestamp_function(void *threadid)
 {
@@ -468,7 +479,7 @@ void *timestamp_function(void *threadid)
 		input_file.open(name.str(), ios::in);
 		output_file.open(name_1.str(), ios::out);
 		ts.open("system.out", ios::in);
-		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << "#" << input_file.rdbuf();
+		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << "#" << input_file.rdbuf(); //To add timestamp in the output file
 		output_file.close();
 		input_file.close();
 		ts.close();
@@ -533,16 +544,16 @@ void *thread_8(void *threadid)
 /*The main function*/
 int main(int argc, char *argv[])
 {
-	clock_gettime(CLOCK_REALTIME, &start_time);
+	clock_gettime(CLOCK_REALTIME, &start_time); /*To find the start time for the code*/
 	printf("\nThe start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
 
 	if(argc > 1)
 	{
 		sscanf(argv[1], "%d", &device);
 	}
-	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES);
-	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES);
-	cap.set(CV_CAP_PROP_FPS,10.0);
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES); //It sets the width of the image viewer resolution
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES); // it sets the
+	cap.set(CV_CAP_PROP_FPS,10.0); //For setting the camera frame rate
 	// XInitThreads();
 	cap.open(device);
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
@@ -555,12 +566,12 @@ int main(int argc, char *argv[])
 	func_arr[6] = thread_7;
 	func_arr[7] = thread_8;
 	printf("starting threads init\n");
- 	threads_init();
-	cap.release();
+ 	threads_init(); //For creating and joining threads
+	cap.release(); //To release the camera
 	clock_gettime(CLOCK_REALTIME, &stop_time);
-	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec);
-	delta_t(&stop_time, &start_time, &exe_time);
-	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n";
+	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec); //To find the stop time for the code*/
+	delta_t(&stop_time, &start_time, &exe_time); //To calculate the execution time of the code for specified number of frames*/
+	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n"; /*To print out the execution time of the code*/
 	printf("\nAll done\n");
 }
 
