@@ -1,3 +1,10 @@
+/************************************
+*version15.cpp
+*Date: 08/12/2018
+* Sanika Dongre
+* Reference: Sequenecer: Sam Siewert 
+*
+***********************************/
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +29,6 @@ using namespace std;
 
 VideoCapture cap(0);
 
-//VideoCapture cap(1);
 Mat ppm_frame(480,640,CV_8UC3);
 uint8_t *frame_ptr;
 Mat frame_jpg(480,640,CV_8UC3);
@@ -71,6 +77,12 @@ double initial_time;
 sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
 static char buffer[sizeof(char *)];
 
+/*****************************************
+*calc_ms: Function to calculate ms value
+*It uses clock get real time to calculate 
+* time in ms
+*
+******************************************/
 double calc_ms(void)
 {
 	struct timespec scene = {0,0};
@@ -78,6 +90,12 @@ double calc_ms(void)
 	return ((scene.tv_sec*1000)+scene.tv_nsec/MSEC);
 }
 
+/***********************************************
+*Jitter calculations: Function that uses 
+*
+*
+*
+********************************************/
 void jitter_calculations(uint8_t thread_id)
 {
 	
