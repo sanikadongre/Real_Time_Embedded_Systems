@@ -117,6 +117,40 @@ void jitter_final_print(uint8_t thread_id)
 	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
 }	
+void delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
+{
+  int dt_sec=stop->tv_sec - start->tv_sec;
+  int dt_nsec=stop->tv_nsec - start->tv_nsec;
+
+  if(dt_sec >= 0)
+  {
+    if(dt_nsec >= 0)
+    {
+      delta_t->tv_sec=dt_sec;
+      delta_t->tv_nsec=dt_nsec;
+    }
+    else
+    {
+      delta_t->tv_sec=dt_sec-1;
+      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
+    }
+  }
+  else
+  {
+    if(dt_nsec >= 0)
+    {
+      delta_t->tv_sec=dt_sec;
+      delta_t->tv_nsec=dt_nsec;
+    }
+    else
+    {
+      delta_t->tv_sec=dt_sec-1;
+      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
+    }
+  }
+  return;
+}
+
 void threads_init(void)
 {
 	uint8_t i=0; //max_priority=20;
@@ -510,8 +544,8 @@ int main(int argc, char *argv[])
 	cap.release();
 	clock_gettime(CLOCK_REALTIME, &stop_time);
 	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec);
-	exe_time.tv_sec = ((stop_time.tv_sec - start_time.tv_sec)+ (stop_time.tv_nsec - start_time.tv_nsec)/1000000000);
-	printf("\n\r The execution time is %d seconds and %d nanoseconds", exe_time.tv_sec, exe_time.tv_nsec);
+	delta_t(&stop_time, &start_time, &exe_time);
+	cout<<"\n\nCode Execution Time = "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n";
 	printf("\nAll done\n");
 }
 
