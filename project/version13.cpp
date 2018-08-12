@@ -318,7 +318,6 @@ void *frame_function(void *threadid)
 	pthread_exit(NULL);
 }
 
-/* Thread to perform hough eliptical transform*/
 void *write_function(void *threadid)
 {
 	
@@ -334,7 +333,7 @@ void *write_function(void *threadid)
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n3rd thread\n");
-		name.str("Frame_");
+		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		time (&rawtime);
  		timecur = localtime (&rawtime);
@@ -358,6 +357,7 @@ void *jpg_function(void *threadid)
 	
 	uint8_t thread_id=3;	
 	ostringstream name;
+
 	vector<int> compression_params;
 	compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
 	compression_params.push_back(95);	
@@ -371,7 +371,7 @@ void *jpg_function(void *threadid)
 		
 		//Do code here
 		printf("\n4th thread\n");
-		name.str("Frame_");
+		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR);
 		name.str("");
@@ -390,7 +390,7 @@ void *jpg_function(void *threadid)
 void *timestamp_function(void *threadid)
 {
 	uint8_t thread_id=4;	
-	fstream output_file, file_out, ts;
+	fstream input_file, output_file, ts;
 	ostringstream name, name_1;
  	while(cond)
 	{
@@ -401,14 +401,14 @@ void *timestamp_function(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 		name.str(" ");
 		name_1.str(" ");
-		name<<"Frame_"<<counter_arr[thread_id]<<".ppm";
+		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		name_1<<"output_"<<counter_arr[thread_id]<<".ppm";
-		output_file.open(name.str(), ios::in| ios::out);
-		file_out.open(name_1.str(), ios::out);
+		input_file.open(name.str(), ios::in);
+		output_file.open(name_1.str(), ios::out);
 		ts.open("system.out", ios::in);
-		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << endl << "#" << output_file.rdbuf();
+		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << "#" << input_file.rdbuf();
 		output_file.close();
-		file_out.close();
+		input_file.close();
 		ts.close();
 		//Do code here
 		printf("\n5th thread");
