@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
 	clock_gettime(CLOCK_REALTIME, &stop_time);
 	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec);
 	delta_t(&stop_time, &start_time, &exe_time);
-	cout<<"\n\nCode Execution Time = "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n";
+	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n";
 	printf("\nAll done\n");
 }
 
