@@ -90,11 +90,13 @@ double calc_ms(void)
 	return ((scene.tv_sec*1000)+scene.tv_nsec/MSEC);
 }
 
-/***********************************************
-*Jitter calculations: Function that uses 
-*
-*
-*
+/************************************************
+*Jitter calculations: Function for calculating 
+*the jitter: the avg difference array, 
+*the jitter calculation, the accumulated jitter, 
+*the average jitter and the
+*accumulated jitter.
+*The jitter is calculated for every thread
 ********************************************/
 void jitter_calculations(uint8_t thread_id)
 {
@@ -108,12 +110,12 @@ void jitter_calculations(uint8_t thread_id)
 	printf("\n\r The run time is : %0.8lf ms\n", run_time[thread_id]);
 	if(run_time[thread_id] > wcet_arr[thread_id])
 	{
-		wcet_arr[thread_id] = run_time[thread_id];
+		wcet_arr[thread_id] = run_time[thread_id]; //Worst case jitter
 		cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
 	}
 	if(counter_arr[thread_id] == 0)
 	{
-      		avg_diff_arr[thread_id] = run_time[thread_id];
+      		avg_diff_arr[thread_id] = run_time[thread_id]; //To get the average difference array
 		printf(" the avg difference array is: %0.8lf ms\n", avg_diff_arr[thread_id]);
     	}
 	else if(counter_arr[thread_id] > 0)
@@ -121,20 +123,26 @@ void jitter_calculations(uint8_t thread_id)
 		jitter_calc_arr[thread_id] = run_time[thread_id] - avg_diff_arr[thread_id];
 		avg_diff_arr[thread_id] = (avg_diff_arr[thread_id] * (counter_arr[thread_id]-1) + run_time[thread_id])/(counter_arr[thread_id]);
   		printf(" The average difference array is: %0.8lf ms\n ", avg_diff_arr[thread_id]);    		
-		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]);
-		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id];
-	}
+		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]); //To get the calculated jitter
+		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id]; //The accumulated jitter is calculated
 	counter_arr[thread_id]++;
 }
-
+/************************************************
+*Function for printing the final jitter values
+* ***********************************************/
 void jitter_final_print(uint8_t thread_id)
 {
-	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id];
+	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id]; 
 	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
   	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
 	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
-}	
+}
+/*******************************************************************
+*Function: delta_t for calculating the difference between two times
+*It has three timespec structures as the parameters to the function
+********************************************************************/
+
 void delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
 {
   int dt_sec=stop->tv_sec - start->tv_sec;
@@ -168,11 +176,15 @@ void delta_t(struct timespec *stop, struct timespec *start, struct timespec *del
   }
   return;
 }
-
+/******************************************
+*Function: For creating the threads, 
+*initializing the semaphores and joining the 
+*threads
+******************************************/
 void threads_init(void)
 {
-	uint8_t i=0; //max_priority=20;
-	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO);
+	uint8_t i=0; 
+	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO); 
 	printf("\nCreating Threads");
 	for(i=0;i<threads_count;i++)
 	{
@@ -247,7 +259,11 @@ void time_check(void)
 	}
 }
 
-
+/********************************************************
+*Sequencer function to send the threads at proper rates
+* The semaphores are posted for each thread based on the
+*sequencer rates
+**********************************************************/
 
 void *sequencer(void *threadid)
 {
@@ -335,7 +351,12 @@ void *sequencer(void *threadid)
 	}
 	pthread_exit(NULL);
 }
-
+/****************************************************
+* Frame function: The function used to capture frames
+*from the camera
+*
+*
+****************************************************/
 void *frame_function(void *threadid)
 {
 	
@@ -347,26 +368,18 @@ void *frame_function(void *threadid)
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-		//if(cap_count ==0)
-		//{
-			//Do code here
-			//printf("\n2nd thread");
-			clock_gettime(CLOCK_REALTIME, &cap_start_time);
-		//}
+		clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		sem_wait(&ppm_sem);
-		cap >> ppm_frame;
+		cap >> ppm_frame; //To get the next frames
 		sem_post(&ppm_sem);
 		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
-		
 		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
-		
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -392,7 +405,6 @@ void *write_function(void *threadid)
 		putText(ppm_frame,asctime(timecur),Point(465,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
-		
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 		sem_post(&ppm_done_sem);
@@ -420,8 +432,6 @@ void *jpg_function(void *threadid)
     		sem_wait(&semaphore_arr[thread_id]);
 		sem_wait(&ppm_done_sem);
 		start_arr[thread_id] = calc_ms();
-		
-		//Do code here
 		printf("\n4th thread\n");
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
@@ -462,9 +472,7 @@ void *timestamp_function(void *threadid)
 		output_file.close();
 		input_file.close();
 		ts.close();
-		//Do code here
 		printf("\n5th thread");
-	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 		sem_post(&ts_sem);
@@ -481,10 +489,7 @@ void *thread_6(void *threadid)
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
 		printf("\n6th thread");	
-
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 	}
@@ -500,11 +505,7 @@ void *thread_7(void *threadid)
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
 		printf("\n7th thread");	
-
-	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
   	}
@@ -520,11 +521,7 @@ void *thread_8(void *threadid)
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
 		printf("\n8th thread");	
-
-	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
   	}
