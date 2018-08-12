@@ -25,7 +25,7 @@ VideoCapture cap(0);
 //VideoCapture cap(1);
 Mat ppm_frame(480,640,CV_8UC3);
 uint8_t *frame_ptr;
-
+Mat frame_jpg(480,640,CV_8UC3);
 #define HRES 640
 #define VRES 480
 #define MSEC 1000000
@@ -68,7 +68,7 @@ static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
-sem_t ppm_sem;
+sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
 static char buffer[sizeof(char *)];
 
 double calc_ms(void)
@@ -127,20 +127,43 @@ void threads_init(void)
 		pthread_attr_init(&attr_arr[i]);
 		pthread_attr_setinheritsched(&attr_arr[i],PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
-		param_arr[0].sched_priority=max_priority;
-		param_arr[1].sched_priority=max_priority-1;
-		param_arr[2].sched_priority=max_priority-2;
-		param_arr[3].sched_priority=max_priority-3;
-		param_arr[4].sched_priority=max_priority-2;
-		param_arr[5].sched_priority=max_priority-3;
-		param_arr[6].sched_priority=max_priority-2;
-		param_arr[7].sched_priority=max_priority-4;	
+		param_arr[i].sched_priority=max_priority-i;		
 		if (sem_init (&semaphore_arr[i], 0, 0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread"<<i;
 			exit (-1);
 		}
-		if(sem_init(&ppm_sem, 0))
+		if(sem_init(&ppm_sem, 0,1))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&jpg_sem, 0,1))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&ppm_done_sem, 0,0))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&jpg_done_sem, 0,0))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&camera_sem, 0,1))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&ts_sem, 0,1))
+		{
+			cout<<"\n\rFailed to initialize semaphore for thread";
+			exit(-1);
+		}
+		if(sem_init(&ts1_sem, 0,0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
@@ -277,8 +300,9 @@ void *frame_function(void *threadid)
 			//printf("\n2nd thread");
 			//clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		//}
-		
+		sem_wait(&ppm_sem);
 		cap >> ppm_frame;
+		sem_post(&ppm_sem);
 		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
 		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
 		
@@ -305,7 +329,7 @@ void *write_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-		
+		sem_wait(&ppm_sem);
     		sem_wait(&semaphore_arr[thread_id]);
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n3rd thread\n");
@@ -313,21 +337,24 @@ void *write_function(void *threadid)
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		time (&rawtime);
  		timecur = localtime (&rawtime);
- 		//printf ("Current local time and date: %s", asctime(timecur));
 		putText(ppm_frame,asctime(timecur),Point(465,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
+		
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
+		sem_post(&ppm_done_sem);
+		sem_post(&ts1_sem);
+		sem_post(&ppm_sem);
+		
   	}
 	jitter_final_print(thread_id);
-	sem_post(&ppm_sem);
 	pthread_exit(NULL);
 }
 
 void *jpg_function(void *threadid)
 {
-	Mat frame jpg= imrea(name.str(), CV_LOAD_IMAGE_COLOR);
+	
 	uint8_t thread_id=3;	
 	ostringstream name;
 	vector<int> compression_params;
@@ -336,44 +363,60 @@ void *jpg_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-		sem_wait(&ppm_sem);
+		
     		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
+		sem_wait(&ppm_done_sem);
+		start_arr[thread_id] = calc_ms();
 		
 		//Do code here
 		printf("\n4th thread\n");
 		name.str("Frame_");
-		file_name<<"frame_"<<count<<".ppm";
-		Mat frame_jpg = imread(file_name.str(),CV_LOAD_IMAGE_COLOR);
-		file_name.str("");
+		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
+		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR);
+		name.str("");
 		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
-		imwrite(name.str(), ppm_frame, compression_params);
+		imwrite(name.str(), frame_jpg, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
+		sem_post(&jpg_sem);
   	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
-void *thread_5(void *threadid)
+
+void *timestamp_function(void *threadid)
 {
 	uint8_t thread_id=4;	
+	fstream output_file, file_out, ts;
+	ostringstream name, name_1;
  	while(cond)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
+		sem_wait(&ts_sem);
+		sem_wait(&ts1_sem);
 	    	start_arr[thread_id] = calc_ms();
-		
+		name.str(" ");
+		name_1.str(" ");
+		name<<"Frame_"<<counter_arr[thread_id]<<".ppm";
+		name_1<<"output_"<<counter_arr[thread_id]<<".ppm";
+		output_file.open(name.str(), ios::in| ios::out);
+		file_out.open(name_1.str(), ios::out);
+		ts.open("system.out", ios::in);
+		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << endl << "#" << output_file.rdbuf();
+		output_file.close();
+		file_out.close();
+		ts.close();
 		//Do code here
 		printf("\n5th thread");
 	
 		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
+		sem_post(&ts_sem);
   	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -393,7 +436,6 @@ void *thread_6(void *threadid)
 		sem_post(&semaphore_arr[0]);
 	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -414,7 +456,6 @@ void *thread_7(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -435,7 +476,6 @@ void *thread_8(void *threadid)
 		sem_post(&semaphore_arr[0]);
   	}
 	jitter_final_print(thread_id);
-	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
 
@@ -460,7 +500,7 @@ int main(int argc, char *argv[])
   	func_arr[1] = frame_function;
   	func_arr[2] = write_function;
   	func_arr[3] = jpg_function;
-  	func_arr[4] = thread_5;
+  	func_arr[4] = timestamp_function;
 	func_arr[5] = thread_6;
 	func_arr[6] = thread_7;
 	func_arr[7] = thread_8;
