@@ -24,7 +24,6 @@ using namespace std;
 
 VideoCapture cap(0);
 
-//VideoCapture cap(1);
 Mat ppm_frame(480,640,CV_8UC3);
 uint8_t *frame_ptr;
 Mat frame_jpg(480,640,CV_8UC3);
