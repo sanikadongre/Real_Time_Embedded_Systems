@@ -13,8 +13,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <mqueue.h>
 #include <stdbool.h>
-#include <fstream>
-#include <sstream>
 #include <iomanip>
 
 using namespace cv;
@@ -71,52 +69,6 @@ double initial_time;
 sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
 static char buffer[sizeof(char *)];
 
-double calc_ms(void)
-{
-	struct timespec scene = {0,0};
-	clock_gettime(CLOCK_REALTIME, &scene);
-	return ((scene.tv_sec*1000)+scene.tv_nsec/MSEC);
-}
-
-void jitter_calculations(uint8_t thread_id)
-{
-	
-	cout<<"\n\rThread"<<thread_id+0;
- 	printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    	printf("\n\rstart time in ms is: %0.8lf ms \n", start_arr[thread_id]); 
-    	stop_arr[thread_id] = calc_ms();
-    	printf("\n\r stop time in ms is: %0.8lf ms\n", stop_arr[thread_id]);
-    	run_time[thread_id] = stop_arr[thread_id] - start_arr[thread_id];
-	printf("\n\r The run time is : %0.8lf ms\n", run_time[thread_id]);
-	if(run_time[thread_id] > wcet_arr[thread_id])
-	{
-		wcet_arr[thread_id] = run_time[thread_id];
-		cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
-	}
-	if(counter_arr[thread_id] == 0)
-	{
-      		avg_diff_arr[thread_id] = run_time[thread_id];
-		printf(" the avg difference array is: %0.8lf ms\n", avg_diff_arr[thread_id]);
-    	}
-	else if(counter_arr[thread_id] > 0)
-	{
-		jitter_calc_arr[thread_id] = run_time[thread_id] - avg_diff_arr[thread_id];
-		avg_diff_arr[thread_id] = (avg_diff_arr[thread_id] * (counter_arr[thread_id]-1) + run_time[thread_id])/(counter_arr[thread_id]);
-  		printf(" The average difference array is: %0.8lf ms\n ", avg_diff_arr[thread_id]);    		
-		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]);
-		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id];
-	}
-	counter_arr[thread_id]++;
-}
-
-void jitter_final_print(uint8_t thread_id)
-{
-	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id];
-	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
-  	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
-	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
-
-}	
 void threads_init(void)
 {
 	uint8_t i=0; //max_priority=20;
@@ -158,29 +110,19 @@ void threads_init(void)
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&ts_sem, 0,1))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		if(sem_init(&ts1_sem, 0,0))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		cout<<"\nSemaphore "<<i+0<<" initialized"; 
-		cout<<"\nPPM semaphore initialized";
+		//cout<<"\nSemaphore "<<i+0<<" initialized"; 
+		//cout<<"\nPPM semaphore initialized";
         	pthread_attr_setschedparam(&attr_arr[i], &param_arr[i]);
 		if(pthread_create(&thread_arr[i], &attr_arr[i], func_arr[i], (void *)0) !=0)
 		{
 			perror("ERROR; pthread_create:");
 			exit(-1);
 		}
-		cout<<"\nthread "<<i+0<<" created";
+		//cout<<"\nthread "<<i+0<<" created";
 	}
 	
 	sem_post(&semaphore_arr[1]);
-	cout<<"\n\rjoining Threads";
+	//cout<<"\n\rjoining Threads";
 	for(i=0;i<threads_count;i++)
 	{
   		pthread_join(thread_arr[i],NULL);
@@ -234,13 +176,13 @@ void *sequencer(void *threadid)
 			clock_gettime(CLOCK_REALTIME, &current_time);
 				if(delay_cnt > 1)
 			printf("%d seq_loop\n", delay_cnt);
-			if((seqCnt % 30) == 0)
+			if((seqCnt % 3) == 0)
 			{
-				time_check();
+				
 				sem_post(&semaphore_arr[1]);
 				//sem_wait(&semaphore_arr[0]);
 			}
-			if((seqCnt % 30) == 0)
+			if((seqCnt % 3) == 0)
 			{
 				
 				sem_post(&semaphore_arr[2]);
@@ -248,28 +190,9 @@ void *sequencer(void *threadid)
 			}
 		  	if((seqCnt % 30) == 0)
 			{
+				time_check();
 				
 				sem_post(&semaphore_arr[3]);
-				//sem_wait(&semaphore_arr[0]);
-			}
-		  	if((seqCnt % 30) == 0)
-			{
-				sem_post(&semaphore_arr[4]);
-				//sem_wait(&semaphore_arr[0]);
-			}
-			if((seqCnt % 30) == 0)
-			{
-				sem_post(&semaphore_arr[5]);
-				//sem_wait(&semaphore_arr[0]);
-			}
-			if((seqCnt % 30) == 0)
-			{
-				sem_post(&semaphore_arr[6]);
-				//sem_wait(&semaphore_arr[0]);
-			}
-			if((seqCnt % 300) == 0)
-			{
-				sem_post(&semaphore_arr[7]);
 				//sem_wait(&semaphore_arr[0]);
 			}
 		}
@@ -294,26 +217,17 @@ void *frame_function(void *threadid)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
 		//if(cap_count ==0)
 		//{
 			//Do code here
-			//printf("\n2nd thread");
-			clock_gettime(CLOCK_REALTIME, &cap_start_time);
+			//printf("\n2nd thread"
 		//}
 		sem_wait(&ppm_sem);
 		cap >> ppm_frame;
 		sem_post(&ppm_sem);
-		clock_gettime(CLOCK_REALTIME, &cap_stop_time);
-		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec));
-		
-		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
-		
-		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 	}
-	jitter_final_print(thread_id);
 	//sem_post(&semaphore_arr[0]);
 	pthread_exit(NULL);
 }
@@ -331,24 +245,15 @@ void *write_function(void *threadid)
     		/*Hold semaphore*/
 		sem_wait(&ppm_sem);
     		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
-		printf("\n3rd thread\n");
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		time (&rawtime);
- 		timecur = localtime (&rawtime);
-		putText(ppm_frame,asctime(timecur),Point(465,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
-		
-		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 		sem_post(&ppm_done_sem);
-		sem_post(&ts1_sem);
 		sem_post(&ppm_sem);
 		
-  	}
-	jitter_final_print(thread_id);
+	}
 	pthread_exit(NULL);
 }
 
@@ -356,29 +261,11 @@ void *jpg_function(void *threadid)
 {
 	
 	uint8_t thread_id=3;	
-	ostringstream name;
-
-	vector<int> compression_params;
-	compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
-	compression_params.push_back(95);	
  	while(cond)
 	{
     		/*Hold semaphore*/
 		
     		sem_wait(&semaphore_arr[thread_id]);
-		sem_wait(&ppm_done_sem);
-		start_arr[thread_id] = calc_ms();
-		
-		//Do code here
-		printf("\n4th thread\n");
-		name.str("frame_");
-		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR);
-		name.str("");
-		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
-		imwrite(name.str(), frame_jpg, compression_params);
-		name.str(" ");
-		jitter_calculations(thread_id);
 		sem_post(&semaphore_arr[0]);
 		sem_post(&jpg_sem);
   	}
@@ -386,114 +273,17 @@ void *jpg_function(void *threadid)
 	pthread_exit(NULL);
 }
 
-
-void *timestamp_function(void *threadid)
-{
-	uint8_t thread_id=4;	
-	fstream input_file, output_file, ts;
-	ostringstream name, name_1;
- 	while(cond)
-	{
-    		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
-		sem_wait(&ts_sem);
-		sem_wait(&ts1_sem);
-	    	start_arr[thread_id] = calc_ms();
-		name.str(" ");
-		name_1.str(" ");
-		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
-		name_1<<"output_"<<counter_arr[thread_id]<<".ppm";
-		input_file.open(name.str(), ios::in);
-		output_file.open(name_1.str(), ios::out);
-		ts.open("system.out", ios::in);
-		output_file << "P6" << endl << "#Timestamp:" << asctime(timecur) << "#System:" << ts.rdbuf() << "#" << input_file.rdbuf();
-		output_file.close();
-		input_file.close();
-		ts.close();
-		//Do code here
-		printf("\n5th thread");
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
-		sem_post(&ts_sem);
-  	}
-	jitter_final_print(thread_id);
-	pthread_exit(NULL);
-}
-
-void *thread_6(void *threadid)
-{
-	uint8_t thread_id=5;		
- 	while(cond)
-	{
-    		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
-		printf("\n6th thread");	
-
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
-	}
-	jitter_final_print(thread_id);
-	pthread_exit(NULL);
-}
-
-void *thread_7(void *threadid)
-{
-	uint8_t thread_id=6;		
- 	while(cond)
-	{
-    		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
-		printf("\n7th thread");	
-
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
-  	}
-	jitter_final_print(thread_id);
-	pthread_exit(NULL);
-}
-
-void *thread_8(void *threadid)
-{
-	uint8_t thread_id=7;	
- 	while(cond)
-	{
-    		/*Hold semaphore*/
-    		sem_wait(&semaphore_arr[thread_id]);
-	    	start_arr[thread_id] = calc_ms();
-	
-		//Do code here
-		printf("\n8th thread");	
-
-	
-		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
-  	}
-	jitter_final_print(thread_id);
-	pthread_exit(NULL);
-}
-
-
 /*The main function*/
 int main(int argc, char *argv[])
 {
 	clock_gettime(CLOCK_REALTIME, &start_time);
-	printf("\nThe start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
-
 	if(argc > 1)
 	{
 		sscanf(argv[1], "%d", &device);
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES);
-	cap.set(CV_CAP_PROP_FPS,10.0);
+	cap.set(CV_CAP_PROP_FPS,1800.0);
 	// XInitThreads();
 	cap.open(device);
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
@@ -501,18 +291,11 @@ int main(int argc, char *argv[])
   	func_arr[1] = frame_function;
   	func_arr[2] = write_function;
   	func_arr[3] = jpg_function;
-  	func_arr[4] = timestamp_function;
-	func_arr[5] = thread_6;
-	func_arr[6] = thread_7;
-	func_arr[7] = thread_8;
-	printf("starting threads init\n");
  	threads_init();
 	cap.release();
 	clock_gettime(CLOCK_REALTIME, &stop_time);
-	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec);
 	exe_time.tv_sec = ((stop_time.tv_sec - start_time.tv_sec)+ (stop_time.tv_nsec - start_time.tv_nsec)/1000000000);
 	printf("\n\r The execution time is %d seconds and %d nanoseconds", exe_time.tv_sec, exe_time.tv_nsec);
-	printf("\nAll done\n");
 }
 
 	
