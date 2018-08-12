@@ -248,6 +248,7 @@ void *sequencer(void *threadid)
 			}
 		  	if((seqCnt % 30) == 0)
 			{
+				
 				sem_post(&semaphore_arr[3]);
 				//sem_wait(&semaphore_arr[0]);
 			}
@@ -298,7 +299,7 @@ void *frame_function(void *threadid)
 		//{
 			//Do code here
 			//printf("\n2nd thread");
-			//clock_gettime(CLOCK_REALTIME, &cap_start_time);
+			clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		//}
 		sem_wait(&ppm_sem);
 		cap >> ppm_frame;
@@ -484,7 +485,7 @@ void *thread_8(void *threadid)
 int main(int argc, char *argv[])
 {
 	clock_gettime(CLOCK_REALTIME, &start_time);
-	printf("The start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
+	printf("\nThe start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
 
 	if(argc > 1)
 	{
@@ -507,7 +508,10 @@ int main(int argc, char *argv[])
 	printf("starting threads init\n");
  	threads_init();
 	cap.release();
-	
+	clock_gettime(CLOCK_REALTIME, &stop_time);
+	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec);
+	exe_time.tv_sec = ((stop_time.tv_sec - start_time.tv_sec)+ (stop_time.tv_nsec - start_time.tv_nsec)/1000000000);
+	printf("\n\r The execution time is %d seconds and %d nanoseconds", exe_time.tv_sec, exe_time.tv_nsec);
 	printf("\nAll done\n");
 }
 
