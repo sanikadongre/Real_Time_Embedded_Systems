@@ -1,10 +1,10 @@
-/************************************
+/*************************************************************
 *version17.cpp
 *Date: 08/12/2018
 * Sanika Dongre
-* Reference: Sequenecer: Sam Siewert 
+* Reference: delta_t function and Sequenecer: Prof. Sam Siewert 
 *
-***********************************/
+***************************************************************/
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
