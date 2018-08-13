@@ -307,39 +307,39 @@ void *sequencer(void *threadid)
 			{
 				time_check();
 				sem_post(&semaphore_arr[1]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 			if((seqCnt % 30) == 0)
 			{
 				
 				sem_post(&semaphore_arr[2]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 		  	if((seqCnt % 30) == 0)
 			{
 				
 				sem_post(&semaphore_arr[3]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 		  	if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[4]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 			if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[5]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 			if((seqCnt % 30) == 0)
 			{
 				sem_post(&semaphore_arr[6]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 			if((seqCnt % 300) == 0)
 			{
 				sem_post(&semaphore_arr[7]);
-				//sem_wait(&semaphore_arr[0]);
+				
 			}
 		}
 		sem_post(&semaphore_arr[0]);
@@ -348,7 +348,7 @@ void *sequencer(void *threadid)
 	for(i=1;i<threads_count;i++)
 	{
 		sem_post(&semaphore_arr[i]);
-		//sem_wait(&semaphore_arr[0]);
+		
 	}
 	pthread_exit(NULL);
 }
@@ -376,7 +376,7 @@ void *frame_function(void *threadid)
 		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
 	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -408,7 +408,7 @@ void *write_function(void *threadid)
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
 		sem_post(&ppm_done_sem); //semaphore to indicate ppm write is done
 		sem_post(&ts1_sem);
 		sem_post(&ppm_sem);
@@ -448,7 +448,7 @@ void *jpg_function(void *threadid)
 		imwrite(name.str(), frame_jpg, compression_params); //To write the jpg images to the disk
 		name.str(" ");
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
 		sem_post(&jpg_sem);
   	}
 	jitter_final_print(thread_id);
@@ -486,7 +486,7 @@ void *timestamp_function(void *threadid)
 		ts.close();
 		printf("\n5th thread");
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
 		sem_post(&ts_sem);
   	}
 	jitter_final_print(thread_id);
@@ -503,7 +503,7 @@ void *thread_6(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n6th thread");	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
 	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -519,7 +519,7 @@ void *thread_7(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n7th thread");	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -535,7 +535,7 @@ void *thread_8(void *threadid)
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n8th thread");	
 		jitter_calculations(thread_id);
-		sem_post(&semaphore_arr[0]);
+		
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -555,8 +555,7 @@ int main(int argc, char *argv[])
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES); //It sets the width of the image viewer resolution
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES); // it sets the
 	cap.set(CV_CAP_PROP_FPS,10.0); //For setting the camera frame rate
-	// XInitThreads();
-	cap.open(device);
+	cap.open(device); //Camera start
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
