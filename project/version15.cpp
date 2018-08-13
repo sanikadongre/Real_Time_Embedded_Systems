@@ -1,10 +1,10 @@
-/****************************************************************
+/************************************
 *version15.cpp
 *Date: 08/12/2018
 * Sanika Dongre
-* Reference: delta_t function and Sequenecer: Sam Siewert 
+* Reference: Sequenecer: Sam Siewert 
 *
-******************************************************************/
+***********************************/
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -397,8 +397,9 @@ void *write_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-		sem_wait(&ppm_sem);
+		
     		sem_wait(&semaphore_arr[thread_id]);
+		sem_wait(&ppm_sem);
 	    	start_arr[thread_id] = calc_ms();
 		printf("\n3rd thread\n");
 		name.str("frame_");
