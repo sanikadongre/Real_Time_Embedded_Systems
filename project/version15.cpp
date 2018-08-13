@@ -125,6 +125,7 @@ void jitter_calculations(uint8_t thread_id)
   		printf(" The average difference array is: %0.8lf ms\n ", avg_diff_arr[thread_id]);    		
 		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]); //To get the calculated jitter
 		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id]; //The accumulated jitter is calculated
+	}
 	counter_arr[thread_id]++;
 }
 /************************************************
