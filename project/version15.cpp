@@ -408,7 +408,6 @@ void *write_function(void *threadid)
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
-		
 		sem_post(&ppm_done_sem); //semaphore to indicate ppm write is done
 		sem_post(&ts1_sem);
 		sem_post(&ppm_sem);
@@ -448,7 +447,6 @@ void *jpg_function(void *threadid)
 		imwrite(name.str(), frame_jpg, compression_params); //To write the jpg images to the disk
 		name.str(" ");
 		jitter_calculations(thread_id);
-		
 		sem_post(&jpg_sem);
   	}
 	jitter_final_print(thread_id);
