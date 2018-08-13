@@ -71,7 +71,7 @@ static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
-sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
+sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem, camera_sem, ts_sem, ts1_sem;
 
 
 /*******************************************************************
@@ -143,12 +143,12 @@ void threads_init(void)
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&ppm_done_sem, 0,1))
+		if(sem_init(&ppm_fin_sem, 0,1))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&jpg_done_sem, 0,0))
+		if(sem_init(&jpg_fin_sem, 0,0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
@@ -291,13 +291,13 @@ void *write_function(void *threadid)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-		sem_wait(&ppm_done_sem); //semaphore to indicate ppm write has started
+		sem_wait(&ppm_fin_sem); //semaphore to indicate ppm write has started
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		counter_arr[thread_id]++;
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
-		sem_post(&ppm_done_sem); //semaphore to indicate ppm write is done
+		sem_post(&ppm_fin_sem); //semaphore to indicate ppm write is done
 	}
 	pthread_exit(NULL);
 }
