@@ -43,9 +43,6 @@ Mat frame_jpg(480,640,CV_8UC3);
 #define FALSE (0)
 #define ERROR (-1)
 
-
-int abortTest = FALSE;
-
 double framerate;
 double value;
 int cap_count= 0;
@@ -75,7 +72,7 @@ static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
 sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
-static char buffer[sizeof(char *)];
+
 
 /*******************************************************************
 *Function: delta_t for calculating the difference between two times
@@ -207,7 +204,7 @@ void time_check(void)
 void *sequencer(void *threadid)
 {
 	uint8_t thread_id = 0,i=0;	
-	struct timespec delay_time = {0, 25000000};
+	struct timespec delay_time = {0, 25000000}; //Delay time 25ms to run the Sequencer at 40Hz
 	struct timespec remaining_time;
 	uint32_t time_old = 1;
 	unsigned long long seqCnt = 0; 
@@ -240,12 +237,12 @@ void *sequencer(void *threadid)
 			clock_gettime(CLOCK_REALTIME, &current_time);
 				if(delay_cnt > 1)
 			printf("%d seq_loop\n", delay_cnt);
-			if((seqCnt % 4) == 0)
+			if((seqCnt % 4) == 0) //Frame capture at 10Hz
 			{
 				time_check();
 				sem_post(&semaphore_arr[1]);
 			}
-			if((seqCnt % 4) == 0)
+			if((seqCnt % 4) == 0) //ppm images saved on the disk at 10Hz
 			{
 				
 				sem_post(&semaphore_arr[2]);
@@ -294,7 +291,7 @@ void *write_function(void *threadid)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-		sem_wait(&ppm_done_sem); //semaphore to indicate ppm write is done
+		sem_wait(&ppm_done_sem); //semaphore to indicate ppm write has started
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		counter_arr[thread_id]++;
@@ -320,7 +317,7 @@ int main(int argc, char *argv[])
 	cap.set(CV_CAP_PROP_FPS,10.0); //For setting the camera frame rate
 	// XInitThreads();
 	system("uname -a > system.out");
-	cap.open(device);
+	cap.open(device); //Indicates camera is turned on
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;

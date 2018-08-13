@@ -74,8 +74,8 @@ static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
-sem_t ppm_sem, jpg_sem, jpg_done_sem, ppm_done_sem, camera_sem, ts_sem, ts1_sem;
-static char buffer[sizeof(char *)];
+sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem, camera_sem, ts_sem, ts1_sem;
+
 
 /*****************************************
 *calc_ms: Function to calculate ms value
@@ -208,12 +208,12 @@ void threads_init(void)
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&ppm_done_sem, 0,0))
+		if(sem_init(&ppm_fin_sem, 0,0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&jpg_done_sem, 0,0))
+		if(sem_init(&jpg_fin_sem, 0,0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
@@ -408,7 +408,7 @@ void *write_function(void *threadid)
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
 		jitter_calculations(thread_id);
-		sem_post(&ppm_done_sem); //semaphore to indicate ppm write is done
+		sem_post(&ppm_fin_sem); //semaphore to indicate ppm write is done
 		sem_post(&ts1_sem);
 		sem_post(&ppm_sem);
 		
@@ -436,7 +436,7 @@ void *jpg_function(void *threadid)
     		/*Hold semaphore*/
 		
     		sem_wait(&semaphore_arr[thread_id]);
-		sem_wait(&ppm_done_sem);
+		sem_wait(&ppm_fin_sem);
 		start_arr[thread_id] = calc_ms();
 		printf("\n4th thread\n");
 		name.str("frame_");
