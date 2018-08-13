@@ -36,7 +36,7 @@ Mat frame_jpg(480,640,CV_8UC3);
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count  10
+#define frames_count  180
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -139,44 +139,7 @@ void jitter_final_print(uint8_t thread_id)
 	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
 }
-/*******************************************************************
-*Function: delta_t for calculating the difference between two times
-*It has three timespec structures as the parameters to the function
-********************************************************************/
 
-void delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
-{
-  int dt_sec=stop->tv_sec - start->tv_sec;
-  int dt_nsec=stop->tv_nsec - start->tv_nsec;
-
-  if(dt_sec >= 0)
-  {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
-  }
-  else
-  {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
-  }
-  return;
-}
 /******************************************
 *Function: For creating the threads, 
 *initializing the semaphores and joining the 
@@ -571,7 +534,7 @@ int main(int argc, char *argv[])
 	cap.release(); //To release the camera
 	clock_gettime(CLOCK_REALTIME, &stop_time);
 	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec); //To find the stop time for the code*/
-	delta_t(&stop_time, &start_time, &exe_time); //To calculate the execution time of the code for specified number of frames*/
+	exe_time.tv_sec = ((stop_time.tv_sec - start_time.tv_sec)+((stop_time.tv_nsec - start_time.tv_nsec)/NSEC_PER_SEC));
 	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n"; /*To print out the execution time of the code*/
 	printf("\nAll done\n");
 }
