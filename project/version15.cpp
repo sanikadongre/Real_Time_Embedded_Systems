@@ -36,7 +36,7 @@ Mat frame_jpg(480,640,CV_8UC3);
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count  180
+#define frames_count  10
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -76,26 +76,74 @@ static struct mq_attr frame_mq_attr;
 double initial_time;
 sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem, camera_sem, ts_sem, ts1_sem;
 
-/*************************************
-*calc_ms: Function to calculate ms value 
-* It uses clock get real time to calculate
+
+/*****************************************
+*calc_ms: Function to calculate ms value
+*It uses clock get real time to calculate 
 * time in ms
 *
-***************************************/
+******************************************/
 double calc_ms(void)
 {
 	struct timespec scene = {0,0};
 	clock_gettime(CLOCK_REALTIME, &scene);
-	return((scene.tv_sec*1000)+scene_tv.nsec/MSEC);
-
+	return ((scene.tv_sec*1000)+scene.tv_nsec/MSEC);
 }
 
+/************************************************
+*Jitter calculations: Function for calculating 
+*the jitter: the avg difference array, 
+*the jitter calculation, the accumulated jitter, 
+*the average jitter and the
+*accumulated jitter.
+*The jitter is calculated for every thread
+********************************************/
+void jitter_calculations(uint8_t thread_id)
+{
+	
+	cout<<"\n\rThread"<<thread_id+0;
+ 	printf("\n\rframe: %d\n",counter_arr[thread_id]);
+    	printf("\n\rstart time in ms is: %0.8lf ms \n", start_arr[thread_id]); 
+    	stop_arr[thread_id] = calc_ms();
+    	printf("\n\r stop time in ms is: %0.8lf ms\n", stop_arr[thread_id]);
+    	run_time[thread_id] = stop_arr[thread_id] - start_arr[thread_id];
+	printf("\n\r The run time is : %0.8lf ms\n", run_time[thread_id]);
+	if(run_time[thread_id] > wcet_arr[thread_id])
+	{
+		wcet_arr[thread_id] = run_time[thread_id]; //Worst case jitter
+		cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
+	}
+	if(counter_arr[thread_id] == 0)
+	{
+      		avg_diff_arr[thread_id] = run_time[thread_id]; //To get the average difference array
+		printf(" the avg difference array is: %0.8lf ms\n", avg_diff_arr[thread_id]);
+    	}
+	else if(counter_arr[thread_id] > 0)
+	{
+		jitter_calc_arr[thread_id] = run_time[thread_id] - avg_diff_arr[thread_id];
+		avg_diff_arr[thread_id] = (avg_diff_arr[thread_id] * (counter_arr[thread_id]-1) + run_time[thread_id])/(counter_arr[thread_id]);
+  		printf(" The average difference array is: %0.8lf ms\n ", avg_diff_arr[thread_id]);    		
+		printf("\rThe calculated jitter is %0.8lf ms\n", jitter_calc_arr[thread_id]); //To get the calculated jitter
+		acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id]; //The accumulated jitter is calculated
+	}
+	counter_arr[thread_id]++;
+}
+/************************************************
+*Function for printing the final jitter values
+* ***********************************************/
+void jitter_final_print(uint8_t thread_id)
+{
+	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id]; 
+	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
+  	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
+	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
+}
+/*******************************************************************
+*Function: delta_t for calculating the difference between two times
+*It has three timespec structures as the parameters to the function
+********************************************************************/
 
-/*************************************************************************
-*dela_t function to calculate time difference between start and stop time
-*It takes timespec structs as arguments
-****************************************************************************/
 void delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
 {
   int dt_sec=stop->tv_sec - start->tv_sec;
@@ -129,45 +177,6 @@ void delta_t(struct timespec *stop, struct timespec *start, struct timespec *del
   }
   return;
 }
-
-void jitter_calculations(uint8_t thread_id)
-{
-		cout <<"\n\r Thread"<< thread_id+0;
-		printf("\n\r frame:%d\n", counter_arr[thread_id]);
-		printf("\n\r The run time is : %0.8lf ns\n", run_time[thread_id]);
-		if(run_time[thread_id] > wcet_arr[thread_id])
-		{
-			wcet_arr[thread_id] = run_time[thread_id]; //Worst case jitter
-			cout<<"\n\r The worst execution time in ns for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
-		}
-		if(counter_arr[thread_id] == 0)
-		{
-			avg_diff_arr[thread_id] = run_time[thread_id]; //To get the average difference array
-			printf(" the avg difference array is: %0.8lf ns\n", avg_diff_arr[thread_id]);
-		}
-		else if(counter_arr[thread_id] > 0)
-		{
-			jitter_calc_arr[thread_id] = run_time[thread_id] - avg_diff_arr[thread_id];
-			avg_diff_arr[thread_id] = (avg_diff_arr[thread_id] * (counter_arr[thread_id]-1) + run_time[thread_id])/(counter_arr[thread_id]);
-			printf(" The average difference array is: %0.8lf ns\n ", avg_diff_arr[thread_id]);    		
-			printf("\rThe calculated jitter is %0.8lf ns\n", jitter_calc_arr[thread_id]); //To get the calculated jitter
-			acc_jitter_arr[thread_id] += jitter_calc_arr[thread_id]; //The accumulated jitter is calculated
-		}
-		counter_arr[thread_id]++;	
-	
-}
-/************************************************
-*Function for printing the final jitter values
-* ***********************************************/
-void jitter_final_print(uint8_t thread_id)
-{
-	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id]; 
-	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
-  	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
-	cout<<"\n\rThe average jitter for thread in ns thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
-
-}
-
 /******************************************
 *Function: For creating the threads, 
 *initializing the semaphores and joining the 
@@ -177,6 +186,13 @@ void threads_init(void)
 {
 	uint8_t i=0; 
 	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO); 
+	cpu_set_t cpu1,cpu2,cpu3;
+	CPU_ZERO(&cpu1);
+	CPU_SET(0, &cpu1);
+	CPU_ZERO(&cpu2);
+	CPU_SET(0, &cpu2);
+	CPU_ZERO(&cpu3);
+	CPU_SET(0, &cpu3);
 	printf("\nCreating Threads");
 	for(i=0;i<threads_count;i++)
 	{
@@ -184,6 +200,12 @@ void threads_init(void)
 		pthread_attr_setinheritsched(&attr_arr[i],PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
 		param_arr[i].sched_priority=max_priority-i;
+		pthread_attr_setaffinity_np(&attr_arr[0], sizeof(cpu1), &cpu1);
+		pthread_attr_setaffinity_np(&attr_arr[1], sizeof(cpu2), &cpu2);
+		pthread_attr_setaffinity_np(&attr_arr[2], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[3], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[4], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[5], sizeof(cpu3), &cpu3);
 				
 		if (sem_init (&semaphore_arr[i], 0, 0))
 		{
@@ -358,7 +380,7 @@ void *frame_function(void *threadid)
   	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	    	clock_gettime(CLOCK_REALTIME, &start_arr1);
+	    	start_arr[thread_id] = calc_ms();
 		clock_gettime(CLOCK_REALTIME, &cap_start_time);
 		sem_wait(&ppm_sem);
 		cap >> ppm_frame; //To get the next frames
@@ -367,14 +389,8 @@ void *frame_function(void *threadid)
 		diff= ((cap_stop_time.tv_sec - cap_start_time.tv_sec)*1000000000 + (cap_stop_time.tv_nsec - cap_start_time.tv_nsec)); //To get the difference between capture stop time and capture start time
 		printf("\n\r frame capture time is: %0.8lf ns\n", diff);
 		frame_ptr = (uint8_t*) ppm_frame.data;
-		cout<<"\n\rThread"<<thread_id+0;
-                printf("\n\rframe: %d\n",counter_arr[thread_id]);
-		printf("\n\rstart time is  %d sec and %d ns \n", start_arr1.tv_sec, start_arr1.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr1);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr1.tv_sec, start_arr1.tv_nsec);
-		delta_t(&stop_arr1, &start_arr1, &change_arr1);
-		run_time[thread_id] = ((change_arr1.tv_sec * NSEC_PER_SEC)+ change_arr1.tv_nsec);
 		jitter_calculations(thread_id);
+		
 	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -394,10 +410,10 @@ void *write_function(void *threadid)
  	while(cond)
 	{
     		/*Hold semaphore*/
-		
-    		sem_wait(&semaphore_arr[thread_id]);
 		sem_wait(&ppm_sem);
-	    	clock_gettime(CLOCK_REALTIME, &start_arr2);
+    		sem_wait(&semaphore_arr[thread_id]);
+	    	start_arr[thread_id] = calc_ms();
+		printf("\n3rd thread\n");
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		time (&rawtime);
@@ -405,17 +421,11 @@ void *write_function(void *threadid)
 		putText(ppm_frame,asctime(timecur),Point(465,470),FONT_HERSHEY_COMPLEX_SMALL,0.7,Scalar(255,255,0),2);
 		imwrite(name.str(), ppm_frame, compression_params);
 		name.str(" ");
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr2.tv_sec, start_arr2.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr2);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr2.tv_sec, start_arr2.tv_nsec);
-		delta_t(&stop_arr2, &start_arr2, &change_arr2);
-		run_time[thread_id] = ((change_arr2.tv_sec * NSEC_PER_SEC)+ change_arr2.tv_nsec);
 		jitter_calculations(thread_id);
 		sem_post(&ppm_fin_sem); //semaphore to indicate ppm write is done
 		sem_post(&ts1_sem);
-		sem_post(&ppm_sem);	
+		sem_post(&ppm_sem);
+		
   	}
 	jitter_final_print(thread_id);
 	pthread_exit(NULL);
@@ -441,8 +451,8 @@ void *jpg_function(void *threadid)
 		
     		sem_wait(&semaphore_arr[thread_id]);
 		sem_wait(&ppm_fin_sem);
-		clock_gettime(CLOCK_REALTIME, &start_arr3);
-		printf("\n\r jpg thread\n");
+		start_arr[thread_id] = calc_ms();
+		printf("\n4th thread\n");
 		name.str("frame_");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
 		frame_jpg = imread(name.str(),CV_LOAD_IMAGE_COLOR); //To read the ppm image and store it as Mat
@@ -450,13 +460,6 @@ void *jpg_function(void *threadid)
 		name<<"frame_"<<counter_arr[thread_id]<<".jpg";
 		imwrite(name.str(), frame_jpg, compression_params); //To write the jpg images to the disk
 		name.str(" ");
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr3.tv_sec, start_arr3.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr3);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr3.tv_sec, start_arr3.tv_nsec);
-		delta_t(&stop_arr3, &start_arr3, &change_arr3);
-		run_time[thread_id] = ((change_arr3.tv_sec * NSEC_PER_SEC)+ change_arr3.tv_nsec);
 		jitter_calculations(thread_id);
 		sem_post(&jpg_sem);
   	}
@@ -481,7 +484,7 @@ void *timestamp_function(void *threadid)
     		sem_wait(&semaphore_arr[thread_id]);
 		sem_wait(&ts_sem);
 		sem_wait(&ts1_sem);
-	    	clock_gettime(CLOCK_REALTIME, &start_arr4);
+	    	start_arr[thread_id] = calc_ms();
 		name.str(" ");
 		name_1.str(" ");
 		name<<"frame_"<<counter_arr[thread_id]<<".ppm";
@@ -493,14 +496,9 @@ void *timestamp_function(void *threadid)
 		output_file.close();
 		input_file.close();
 		ts.close();
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr4.tv_sec, start_arr4.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr4);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr4.tv_sec, start_arr4.tv_nsec);
-		delta_t(&stop_arr4, &start_arr4, &change_arr4);
-		run_time[thread_id] = ((change_arr4.tv_sec * NSEC_PER_SEC)+ change_arr4.tv_nsec);
-		jitter_calculations(thread_id);		
+		printf("\n5th thread");
+		jitter_calculations(thread_id);
+		
 		sem_post(&ts_sem);
   	}
 	jitter_final_print(thread_id);
@@ -514,14 +512,8 @@ void *thread_6(void *threadid)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	        clock_gettime(CLOCK_REALTIME, &start_arr5);
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr5.tv_sec, start_arr5.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr5);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr5.tv_sec, start_arr5.tv_nsec);
-		delta_t(&stop_arr4, &start_arr5, &change_arr5);
-		run_time[thread_id] = ((change_arr5.tv_sec * NSEC_PER_SEC)+ change_arr5.tv_nsec);
+	    	start_arr[thread_id] = calc_ms();
+		printf("\n6th thread");	
 		jitter_calculations(thread_id);
 		
 	}
@@ -536,14 +528,8 @@ void *thread_7(void *threadid)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	    	clock_gettime(CLOCK_REALTIME, &start_arr6);
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr6.tv_sec, start_arr6.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr6);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr6.tv_sec, start_arr6.tv_nsec);
-		delta_t(&stop_arr6, &start_arr6, &change_arr6);
-		run_time[thread_id] = ((change_arr6.tv_sec * NSEC_PER_SEC)+ change_arr6.tv_nsec);
+	    	start_arr[thread_id] = calc_ms();
+		printf("\n7th thread");	
 		jitter_calculations(thread_id);
 		
   	}
@@ -558,14 +544,8 @@ void *thread_8(void *threadid)
 	{
     		/*Hold semaphore*/
     		sem_wait(&semaphore_arr[thread_id]);
-	    	clock_gettime(CLOCK_REALTIME, &start_arr7);
-		cout<<"\n\rThread"<<thread_id+0;
- 		printf("\n\rframe: %d\n",counter_arr[thread_id]);
-    		printf("\n\rstart time is  %d sec and %d ns \n", start_arr7.tv_sec, start_arr7.tv_nsec); 
-		clock_gettime(CLOCK_REALTIME, &stop_arr7);
-    		printf("\n\r stop time is: %d sec and %d ns\n", stop_arr7.tv_sec, start_arr7.tv_nsec);
-		delta_t(&stop_arr7, &start_arr7, &change_arr7);
-		run_time[thread_id] = ((change_arr7.tv_sec * NSEC_PER_SEC)+ change_arr7.tv_nsec);
+	    	start_arr[thread_id] = calc_ms();
+		printf("\n8th thread");	
 		jitter_calculations(thread_id);
 		
   	}
@@ -603,7 +583,7 @@ int main(int argc, char *argv[])
 	cap.release(); //To release the camera
 	clock_gettime(CLOCK_REALTIME, &stop_time);
 	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec); //To find the stop time for the code*/
-	delta_t(&stop_time, &start_time, &exe_time);
+	delta_t(&stop_time, &start_time, &exe_time); //To calculate the execution time of the code for specified number of frames*/
 	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n"; /*To print out the execution time of the code*/
 	printf("\nAll done\n");
 }
