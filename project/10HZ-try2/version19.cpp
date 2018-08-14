@@ -71,47 +71,7 @@ static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
 double initial_time;
-sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem, camera_sem, ts_sem, ts1_sem;
-
-
-/*******************************************************************
-*Function: delta_t for calculating the difference between two times
-*It has three timespec structures as the parameters to the function
-********************************************************************/
-
-void delta_t(struct timespec *stop, struct timespec *start, struct timespec *delta_t)
-{
-  int dt_sec=stop->tv_sec - start->tv_sec;
-  int dt_nsec=stop->tv_nsec - start->tv_nsec;
-
-  if(dt_sec >= 0)
-  {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
-  }
-  else
-  {
-    if(dt_nsec >= 0)
-    {
-      delta_t->tv_sec=dt_sec;
-      delta_t->tv_nsec=dt_nsec;
-    }
-    else
-    {
-      delta_t->tv_sec=dt_sec-1;
-      delta_t->tv_nsec=NSEC_PER_SEC+dt_nsec;
-    }
-  }
-  return;
-}
+sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem;
 /******************************************
 *Function: For creating the threads, 
 *initializing the semaphores and joining the 
@@ -138,32 +98,7 @@ void threads_init(void)
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
 		}
-		if(sem_init(&jpg_sem, 0,1))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
 		if(sem_init(&ppm_fin_sem, 0,1))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		if(sem_init(&jpg_fin_sem, 0,0))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		if(sem_init(&camera_sem, 0,1))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		if(sem_init(&ts_sem, 0,1))
-		{
-			cout<<"\n\rFailed to initialize semaphore for thread";
-			exit(-1);
-		}
-		if(sem_init(&ts1_sem, 0,0))
 		{
 			cout<<"\n\rFailed to initialize semaphore for thread";
 			exit(-1);
@@ -210,8 +145,6 @@ void *sequencer(void *threadid)
 	unsigned long long seqCnt = 0; 
 	double residual; int rc; int delay_cnt = 0;
 	clock_gettime(CLOCK_REALTIME, &current_time);
-	printf("\n\rThe current time is %d sec and %d nsec\n", current_time.tv_sec, current_time.tv_nsec);
-	//printf("The stop time is %d seconds and %d nanoseconds\n", stop_time.tv_sec, stop_time.tv_nsec);
 	do 
 	{       
 		clock_gettime(CLOCK_REALTIME, &current_time);
@@ -235,8 +168,6 @@ void *sequencer(void *threadid)
 			}while((residual > 0.0) && (delay_cnt < 100));
 			seqCnt++;
 			clock_gettime(CLOCK_REALTIME, &current_time);
-				if(delay_cnt > 1)
-			printf("%d seq_loop\n", delay_cnt);
 			if((seqCnt % 4) == 0) //Frame capture at 10Hz
 			{
 				time_check();
@@ -306,28 +237,22 @@ void *write_function(void *threadid)
 int main(int argc, char *argv[])
 {
 	clock_gettime(CLOCK_REALTIME, &start_time); /*To find the start time for the code*/
-	printf("\nThe start time is %d seconds and %d nanoseconds\n", start_time.tv_sec, start_time.tv_nsec);
-
 	if(argc > 1)
 	{
 		sscanf(argv[1], "%d", &device);
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES); //It sets the width of the image viewer resolution
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES); // it sets the
-	cap.set(CV_CAP_PROP_FPS,10.0); //For setting the camera frame rate
-	// XInitThreads();
+	cap.set(CV_CAP_PROP_FPS,1800.0); //For setting the camera frame rate
 	system("uname -a > system.out");
 	cap.open(device); //Indicates camera is turned on
-	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
   	func_arr[1] = frame_function;
   	func_arr[2] = write_function;
-	printf("starting threads init\n");
  	threads_init(); //For creating and joining threads
 	cap.release(); //To release the camera
 	clock_gettime(CLOCK_REALTIME, &stop_time);
-	printf("\nThe code stop time is %d seconds and %d nanoseconds\n",stop_time.tv_sec, stop_time.tv_nsec); //To find the stop time for the code*/
-	delta_t(&stop_time, &start_time, &exe_time); //To calculate the execution time of the code for specified number of frames*/
+	exe_time.tv_sec = ((stop_time.tv_sec - start_time.tv_sec)+((stop_time.tv_nsec - start_time.tv_nsec)/NSEC_PER_SEC));
 	cout<<"\n\r The execution time for the code is: "<<exe_time.tv_sec<<" seconds "<<exe_time.tv_nsec<<" nano seconds.\n"; /*To print out the execution time of the code*/
 	printf("\nAll done\n");
 }
