@@ -173,7 +173,7 @@ void *sequencer(void *threadid)
 				time_check();
 				sem_post(&semaphore_arr[1]);
 			}
-			if((seqCnt % 4) == 0) //ppm images saved on the disk at 10Hz
+			if((seqCnt % 9) == 0) //ppm images saved on the disk at 10Hz
 			{
 				
 				sem_post(&semaphore_arr[2]);
