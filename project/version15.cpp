@@ -58,20 +58,8 @@ pthread_t thread_arr[threads_count];
 pthread_attr_t attr_arr[threads_count];
 struct sched_param param_arr[threads_count];
 void* (*func_arr[threads_count]) (void*) ;
-struct timespec start_arr1 = {0,0};
-struct timespec stop_arr1 = {0,0};
-struct timespec start_arr2 = {0,0};
-struct timespec stop_arr2 = {0,0};
-struct timespec start_arr3 = {0,0};
-struct timespec stop_arr3 = {0,0};
-struct timespec start_arr4 = {0,0};
-struct timespec stop_arr4 = {0,0};
-struct timespec start_arr5 = {0,0};
-struct timespec stop_arr5 = {0,0};
-struct timespec start_arr6 = {0,0};
-struct timespec stop_arr6 = {0,0};
-struct timespec start_arr7 = {0,0};
-struct timespec stop_arr7 = {0,0};
+double start_arr[threads_count] = {0,0,0,0,0,0,0,0};
+double stop_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double acc_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double avg_jitter_arr[threads_count] = {0,0,0,0,0,0,0,0};
 double wcet_arr[threads_count] = {0,0,0,0,0,0,0,0};
@@ -85,9 +73,25 @@ static uint8_t cond = TRUE;
 static struct timespec cap_start_time = {0,0};
 static struct timespec cap_stop_time = {0,0};
 static struct mq_attr frame_mq_attr;
-static struct timespec change_arr1, change_arr2, change_arr3, change_arr4, change_arr5, change_arr6, change_arr7;
 double initial_time;
 sem_t ppm_sem, jpg_sem, jpg_fin_sem, ppm_fin_sem, camera_sem, ts_sem, ts1_sem;
+
+/*************************************
+*calc_ms: Function to calculate ms value 
+* It uses clock get real time to calculate
+* time in ms
+*
+***************************************/
+double calc_ms(void)
+{
+	struct timespec scene = {0,0};
+	clock_gettime(CLOCK_REALTIME, &scene);
+	return((scene.tv_sec*1000)+scene_tv.nsec/MSEC);
+
+}
+
+
+
 /*************************************************************************
 *dela_t function to calculate time difference between start and stop time
 *It takes timespec structs as arguments
@@ -128,7 +132,8 @@ void delta_t(struct timespec *stop, struct timespec *start, struct timespec *del
 
 void jitter_calculations(uint8_t thread_id)
 {
-		
+		cout <<"\n\r Thread"<< thread_id+0;
+		printf("\n\r frame:%d\n", counter_arr[thread_id]);
 		printf("\n\r The run time is : %0.8lf ns\n", run_time[thread_id]);
 		if(run_time[thread_id] > wcet_arr[thread_id])
 		{
@@ -159,7 +164,7 @@ void jitter_final_print(uint8_t thread_id)
 	cout<<"\n\rThe accumulated jitter for thread "<<thread_id+0<<" ="<<acc_jitter_arr[thread_id]; 
 	cout<<"\n\r The worst execution time for thread"<<thread_id+0<<" ="<<wcet_arr[thread_id];
   	avg_jitter_arr[thread_id]=acc_jitter_arr[thread_id]/frames_count;
-	cout<<"\n\rThe average jitter for thread in ms thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
+	cout<<"\n\rThe average jitter for thread in ns thread"<<thread_id+0<<" ="<<avg_jitter_arr[thread_id]; 
 
 }
 
