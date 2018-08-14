@@ -36,7 +36,7 @@ Mat frame_jpg(480,640,CV_8UC3);
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count  180
+#define frames_count  2000
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
 	
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, HRES); //It sets the width of the image viewer resolution
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, VRES); // it sets the
-	cap.set(CV_CAP_PROP_FPS,10.0); //For setting the camera frame rate
+	cap.set(CV_CAP_PROP_FPS,2000.0); //For setting the camera frame rate
 	cap.open(device); //Camera start
 	printf("fps %lf\n", cap.get(CV_CAP_PROP_FPS));
 	func_arr[0] = sequencer;
