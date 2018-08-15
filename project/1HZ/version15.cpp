@@ -36,7 +36,7 @@ Mat frame_jpg(480,640,CV_8UC3);
 #define VRES 480
 #define MSEC 1000000
 #define NSEC_PER_SEC (1000000000)
-#define frames_count  180
+#define frames_count  10
 #define threads_count 8
 #define OK (0)
 #define TRUE (1)
@@ -186,7 +186,13 @@ void threads_init(void)
 {
 	uint8_t i=0; 
 	uint8_t max_priority = sched_get_priority_max(SCHED_FIFO); 
-	
+	cpu_set_t cpu1,cpu2,cpu3;
+	CPU_ZERO(&cpu1);
+	CPU_SET(0, &cpu1);
+	CPU_ZERO(&cpu2);
+	CPU_SET(0, &cpu2);
+	CPU_ZERO(&cpu3);
+	CPU_SET(0, &cpu3);
 	printf("\nCreating Threads");
 	for(i=0;i<threads_count;i++)
 	{
@@ -194,7 +200,12 @@ void threads_init(void)
 		pthread_attr_setinheritsched(&attr_arr[i],PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setschedpolicy(&attr_arr[i],SCHED_FIFO);
 		param_arr[i].sched_priority=max_priority-i;
-		
+		pthread_attr_setaffinity_np(&attr_arr[0], sizeof(cpu1), &cpu1);
+		pthread_attr_setaffinity_np(&attr_arr[1], sizeof(cpu2), &cpu2);
+		pthread_attr_setaffinity_np(&attr_arr[2], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[3], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[4], sizeof(cpu3), &cpu3);
+		pthread_attr_setaffinity_np(&attr_arr[5], sizeof(cpu3), &cpu3);
 				
 		if (sem_init (&semaphore_arr[i], 0, 0))
 		{
