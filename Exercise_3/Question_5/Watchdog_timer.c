@@ -64,8 +64,10 @@ int val=-1;
 while(val!=0){
 tenseconds.tv_sec=10;
 val=pthread_mutex_timedlock(&mutex,&tenseconds);	// Mutex timed lock
-printf("No new data available at %ld\n",attitude_precision.presctimestamp.tv_sec);
+
 }
+
+printf("No new data available at %ld\n",attitude_precision.presctimestamp.tv_sec); 
 
 //pthread_mutex_lock(&mutex);
 

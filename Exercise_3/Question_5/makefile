@@ -1,11 +1,20 @@
 
-CC=gcc
+CC=	gcc
 
+CFLAGS=	-O0	-lpthread	-lrt	-pthread   
 
-CFLAGS= -O0 -lpthread -lrt   
+WATCHDOG_TIMER_EXE=	Watchdog_timer
 
-Watchdog_timer:Watchdog_timer.c
-	$(CC) $(CFLAGS)  -o Watchdog_timer   Watchdog_timer.c 
+CFILES=	Watchdog_timer.c
 
-clean:
-	rm Watchdog_timer
+SRCS=	${CFILES}
+
+OBJS=	${CFILES:.c=.o}
+
+build:	${WATCHDOG_TIMER_EXE}
+
+Watchdog_timer:	Watchdog_timer.o
+	$(CC)	$(CFLAGS)	-o	Watchdog_timer	Watchdog_timer.o 
+
+clean:	
+	rm	-f	*.o	*.i	*.s	*.d	*.elf	${Watchdog_timer}
